@@ -43,3 +43,11 @@ std::string readFileFromPath(std::string filePath) {
   }
   return data;
 }
+
+int randInt(int mn, int mx) {
+  std::random_device rd;
+  std::mt19937 rng(rd());
+  std::uniform_int_distribution<int> uni(mn, mx);
+  auto random_integer = uni(rng);
+  return random_integer;
+}

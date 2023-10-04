@@ -7,12 +7,15 @@ CFLAGS=-std=c++17 -I$(INCLUDE_DIR)
 
 LIB_OBJS=protocol.o tcpsocket.o utils.o
 
-all: build server client
+all: build server client loadtestclient
 
 server: server.o grader.o $(LIB_OBJS)
 	$(CC) $(CFLAGS) -o $(BUILD_DIR)/$@ $(patsubst %,$(BUILD_DIR)/%,$?)
 
 client: client.o $(LIB_OBJS)
+	$(CC) $(CFLAGS) -o $(BUILD_DIR)/$@ $(patsubst %,$(BUILD_DIR)/%,$?)
+
+loadtestclient: loadtestclient.o $(LIB_OBJS)
 	$(CC) $(CFLAGS) -o $(BUILD_DIR)/$@ $(patsubst %,$(BUILD_DIR)/%,$?)
 
 %.o: $(SRC_DIR)/%.cc
