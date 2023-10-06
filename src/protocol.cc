@@ -24,7 +24,11 @@ Request* ServerProtocol::parseRequest(int fd) {
         isRequestLineEnd(requestLinePtr))
       break;
 
-    bytes buff = readFromSocket(fd, BUFF_SIZE);
+    auto [buff, readSuccessful] = readFromSocket(fd, BUFF_SIZE);
+    if (!readSuccessful || buff.size() == 0) {
+      return new Request("ERROR", {}, "");
+    }
+
     data.insert(data.end(), buff.begin(), buff.end());
   }
   // looping for headers
@@ -40,7 +44,11 @@ Request* ServerProtocol::parseRequest(int fd) {
     if (headersPtr < ((int32_t)data.size() - 3) && isHeadersEnd(headersPtr))
       break;
 
-    bytes buff = readFromSocket(fd, BUFF_SIZE);
+    auto [buff, readSuccessful] = readFromSocket(fd, BUFF_SIZE);
+    if (!readSuccessful || buff.size() == 0) {
+      return new Request("ERROR", {}, "");
+    }
+
     data.insert(data.end(), buff.begin(), buff.end());
   }
 
@@ -50,16 +58,21 @@ Request* ServerProtocol::parseRequest(int fd) {
   bytes body(data.begin() + headersPtr + 4, data.end());
   std::vector<std::pair<std::string, std::string>> headersList =
       parseHeaders(headers);
-  uint32_t bodySize = -1;
+  int32_t bodySize = -1;
   for (auto header : headersList) {
-    if (header.first == "content-length") bodySize = atoi(header.second.data());
+    if (header.first == "Content-Length") bodySize = atoi(header.second.data());
   }
 
-  check_error(bodySize >= 0, "content-length not provided in request msg");
-  bodySize -= body.size();
+  check_error(bodySize >= 0, "Content-Length not provided in request msg");
+  bodySize -= (int32_t)body.size();
 
-  bytes buff = readFromSocket(fd, bodySize);
-  body.insert(body.end(), buff.begin(), buff.end());
+  if (bodySize) {
+    auto [buff, readSuccessful] = readFromSocket(fd, BUFF_SIZE);
+    if (!readSuccessful || buff.size() == 0) {
+      return new Request("ERROR", {}, "");
+    }
+    body.insert(body.end(), buff.begin(), buff.end());
+  }
 
   Request* req = new Request(parseRequestLine(requestLine), headersList,
                              std::string(body.begin(), body.end()));
@@ -124,7 +137,11 @@ Response* ClientProtocol::parseResponse(int fd) {
         isResponseLineEnd(responseLinePtr))
       break;
 
-    bytes buff = readFromSocket(fd, BUFF_SIZE);
+    auto [buff, readSuccessful] = readFromSocket(fd, BUFF_SIZE);
+    if (!readSuccessful || buff.size() == 0) {
+      return new Response("ERROR", {}, "");
+    }
+
     data.insert(data.end(), buff.begin(), buff.end());
   }
   // looping for headers
@@ -140,7 +157,10 @@ Response* ClientProtocol::parseResponse(int fd) {
     if (headersPtr < ((int32_t)data.size() - 3) && isHeadersEnd(headersPtr))
       break;
 
-    bytes buff = readFromSocket(fd, BUFF_SIZE);
+    auto [buff, readSuccessful] = readFromSocket(fd, BUFF_SIZE);
+    if (!readSuccessful || buff.size() == 0) {
+      return new Response("ERROR", {}, "");
+    }
     data.insert(data.end(), buff.begin(), buff.end());
   }
 
@@ -150,16 +170,21 @@ Response* ClientProtocol::parseResponse(int fd) {
   bytes body(data.begin() + headersPtr + 4, data.end());
   std::vector<std::pair<std::string, std::string>> headersList =
       parseHeaders(headers);
-  uint32_t bodySize = -1;
+  int32_t bodySize = -1;
   for (auto header : headersList) {
-    if (header.first == "content-length") bodySize = atoi(header.second.data());
+    if (header.first == "Content-Length") bodySize = atoi(header.second.data());
   }
 
-  check_error(bodySize >= 0, "content-length not provided in response msg");
-  bodySize -= body.size();
+  check_error(bodySize >= 0, "Content-Length not provided in response msg");
+  bodySize -= (int32_t)body.size();
 
-  bytes buff = readFromSocket(fd, bodySize);
-  body.insert(body.end(), buff.begin(), buff.end());
+  if (bodySize) {
+    auto [buff, readSuccessful] = readFromSocket(fd, BUFF_SIZE);
+    if (!readSuccessful || buff.size() == 0) {
+      return new Response("ERROR", {}, "");
+    }
+    body.insert(body.end(), buff.begin(), buff.end());
+  }
 
   Response* resp = new Response(parseResponseLine(responseLine), headersList,
                                 std::string(body.begin(), body.end()));
