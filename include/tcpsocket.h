@@ -1,7 +1,9 @@
 #pragma once
+#include <utility>
+
 #include "types.h"
 
 namespace autograder {
-bytes readFromSocket(int, int);
+std::pair<bytes, bool> readFromSocket(int, int);
 bool writeToSocket(int, bytes);
 }  // namespace autograder
