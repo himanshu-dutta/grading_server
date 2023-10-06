@@ -41,8 +41,9 @@ do
     ART=grep "ART" $file | cut -d ',' -f 1 | cut -d ': ' -f 2
     NSR=grep "ART" $file | cut -d ',' -f 2 | cut -d ': ' -f 2
     LT=grep "ART" $file | cut -d ',' -f 3 | cut -d ': ' -f 2
-    throughput_i=${NSR}/${LT}
-
+    LT=$(($LT / 1000000))
+    ART=$(($ART / 1000000))
+    throughput_i=$(($NSR / $LT))
     let Overall_throughput=$(($Overall_throughput + $throughput_i))
     temp=(($ART * $loopNum))
     let pResponsetime=(($pResponsetime + $temp))
