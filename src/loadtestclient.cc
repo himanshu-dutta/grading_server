@@ -15,89 +15,120 @@
 
 #define BACKLOG 8
 
-void clientLoop(std::string serverIP, short port,
-                std::string evaluationFilePath) {
-  std::cout << "Evaluation File: " << evaluationFilePath << std::endl;
-  std::string data = readFileFromPath(evaluationFilePath);
+struct LoadClientState {
+ public:
+  int numLoops;
+  int numSecs;
+  int numSuccessfulResp;
+  std::time_t loopStTime;
+  std::time_t loopEnTime;
+  std::vector<std::time_t> respTimes;
+  LoadClientState(int numLoops, int numSecs)
+      : numLoops(numLoops),
+        numSecs(numSecs),
+        numSuccessfulResp(0),
+        loopStTime(-1),
+        loopEnTime(-1),
+        respTimes(0) {}
+};
 
-  std::cout << "=====FILE CONTENTS=====\n";
-  std::cout << data << std::endl;
-  if (data != "") {
-    int conn_fd;
-    sockaddr_in server_addr;
-    check_error((conn_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) >= 0,
-                "error at socket creation");
-
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(port);
-    server_addr.sin_addr.s_addr = inet_addr(serverIP.data());
-
-    check_error(connect(conn_fd, (struct sockaddr*)&server_addr,
-                        sizeof(server_addr)) >= 0,
-                "error at socket connect");
-
-    autograder::ClientProtocol::sendRequest(
-        conn_fd, "CHECK",
-        {
-            {"Content-Length", std::to_string(data.length())},
-        },
-        data);
-
-    std::cout << "Sent grading request to the server...\n";
-
-    autograder::Response* resp =
-        autograder::ClientProtocol::parseResponse(conn_fd);
-    std::cout << "Response from the server:\n" << resp->body << std::endl;
-    close(conn_fd);
-  } else {
-    std::cout << "Either empty file or file doesn't exists\n";
-  }
+std::time_t getTimeInMicroseconds() {
+  timeval timestamp;
+  gettimeofday(&timestamp, NULL);
+  std::time_t tm = timestamp.tv_sec * 1000000 + timestamp.tv_usec;
+  return tm;
 }
 
-void loadTest(std::string serverIP, short port, std::string evaluationFilePath,
-              int num_loops, int num_secs = -1) {
-  timeval timestamp;
-  num_secs = num_secs == -1 ? randInt(1, 5) : num_secs;
+bool clientLoop(int connFd, std::string evaluationFileData) {
+  bool sentRequestSuccessfully = autograder::ClientProtocol::sendRequest(
+      connFd, "CHECK",
+      {
+          {"Content-Length", std::to_string(evaluationFileData.length())},
+      },
+      evaluationFileData);
+  if (!sentRequestSuccessfully) return false;
+  std::cout << "Sent grading request to the server...\n";
 
-  std::vector<std::time_t> respTimes;
+  autograder::Response* resp =
+      autograder::ClientProtocol::parseResponse(connFd);
+  std::cout << "Response from the server:\n" << resp->body << std::endl;
 
-  for (int idx = 0; idx < num_loops; ++idx) {
-    gettimeofday(&timestamp, NULL);
-    std::time_t stTime = timestamp.tv_sec * 1000000 + timestamp.tv_usec;
+  return (resp->resp_type != "ERROR");
+}
 
-    clientLoop(serverIP, port, evaluationFilePath);
+void loadTest(int connFd, std::string evaluationFileData,
+              LoadClientState& state) {
+  state.numSecs = state.numSecs == -1 ? randInt(1, 5) : state.numSecs;
+  state.loopStTime = getTimeInMicroseconds();
 
-    gettimeofday(&timestamp, NULL);
-    std::time_t enTime = timestamp.tv_sec * 1000000 + timestamp.tv_usec;
+  while (state.numLoops--) {
+    std::time_t reqStTime = getTimeInMicroseconds();
 
-    respTimes.push_back(enTime - stTime);
-    std::cout << "\033[32m"
-              << "Response Time #" << (idx + 1) << ": " << (respTimes.back())
-              << " microsecs" << std::endl
-              << "\033[0m";
-    sleep(num_secs);
+    bool gotSuccessfulResponse = clientLoop(connFd, evaluationFileData);
+    state.numSuccessfulResp += gotSuccessfulResponse ? 1 : 0;
+
+    std::time_t reqEnTime = getTimeInMicroseconds();
+
+    state.respTimes.push_back(reqEnTime - reqStTime);
+    // std::cout << "\033[32m"
+    //           << "Response Time #" << (idx + 1) << ": " << (respTimes.back())
+    //           << " microsecs" << std::endl
+    //           << "\033[0m";
+    sleep(state.numSecs);
   }
 
+  state.loopEnTime = getTimeInMicroseconds();
+  std::time_t loopTime = state.loopEnTime - state.loopStTime;
+
   std::time_t respTimeSum = 0;
-  for (auto rt : respTimes) respTimeSum += rt;
-  std::time_t avgRespTime = respTimeSum / (uint)respTimes.size();
-  std::cout << "\033[32m"
-            << "Average Response Time: " << avgRespTime << "  microsecs"
-            << std::endl
-            << "\033[0m";
+  for (auto rt : state.respTimes) respTimeSum += rt;
+  std::time_t avgRespTime = respTimeSum / (uint)state.respTimes.size();
+  std::cout << "ART: " << avgRespTime << ",";
+  std::cout << "NSR: " << state.numSuccessfulResp << ",";
+  std::cout << "LT: " << loopTime << std::endl;
 }
 
 int main(int argc, char* argv[]) {
   check_error(argc == 5,
               "Usage: ./server <serverIP:port> <sourceCodeFileTobeGraded> "
               "<loopNum> <sleepTimeSeconds>");
-  auto [host, port] = splitHostPort(argv[1]);
+  auto [serverIP, port] = splitHostPort(argv[1]);
   std::string evaluationFilePath = argv[2];
   int numloops = atoi(argv[3]);
   int sleeptimeseconds = atoi(argv[4]);
   short portno = atoi(port.data());
 
-  loadTest(host, portno, evaluationFilePath, numloops, sleeptimeseconds);
+  std::cout << "Evaluation File: " << evaluationFilePath << std::endl;
+  std::string data = readFileFromPath(evaluationFilePath);
+
+  std::cout << "=====FILE CONTENTS=====\n";
+  std::cout << data << std::endl;
+  std::cout << "=======================\n";
+  if (data.size() <= 0)
+    std::cout << "Either empty file or file doesn't exists\n";
+
+  LoadClientState lcState(numloops, sleeptimeseconds);
+
+  while (lcState.numLoops > 0) {
+    std::cout << "numLoops: " << lcState.numLoops << std::endl;
+    int conn_fd;
+    sockaddr_in server_addr;
+    check_error((conn_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) >= 0,
+                "error at socket creation");
+
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(portno);
+    server_addr.sin_addr.s_addr = inet_addr(serverIP.data());
+
+    check_error(connect(conn_fd, (struct sockaddr*)&server_addr,
+                        sizeof(server_addr)) >= 0,
+                "error at socket connect");
+
+    loadTest(conn_fd, data, lcState);
+
+    close(conn_fd);
+  }
+
   //   clientLoop(host, portno, evaluationFilePath);
   return 0;
 }

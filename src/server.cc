@@ -69,12 +69,15 @@ int main(int argc, char* argv[]) {
     std::cout << "================================================\n";
     std::cout << "Connected to a client...\n";
 
-    autograder::Request* req =
-        autograder::ServerProtocol::parseRequest(client_fd);
-    // printf("Req Code: %s, Body: %s\n", req->req_type.c_str(),
-    //        req->body.c_str());
-    autograder::Response* resp = (*grader)(req);
-    autograder::ServerProtocol::sendResponse(client_fd, resp);
+    while (true) {
+      autograder::Request* req =
+          autograder::ServerProtocol::parseRequest(client_fd);
+      //   std::cout << "Received client request for: " << req->req_type
+      //             << std::endl;
+      if (req->req_type == "ERROR") break;
+      autograder::Response* resp = (*grader)(req);
+      autograder::ServerProtocol::sendResponse(client_fd, resp);
+    }
 
     close(client_fd);
     std::cout << "================================================\n";
