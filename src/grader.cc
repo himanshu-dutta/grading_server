@@ -23,7 +23,7 @@ Response* Grader::operator()(Request* req) {
     resp = ServerProtocol::generateResponse(
         req->req_type,
         {
-            {"content-length", std::to_string(gradingLog.length())},
+            {"Content-Length", std::to_string(gradingLog.length())},
         },
         gradingLog);
   }
