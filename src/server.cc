@@ -12,7 +12,7 @@
 #include "protocol.h"
 #include "utils.h"
 
-#define BACKLOG 8
+#define BACKLOG 16
 
 namespace {
 std::function<void(int)> shutdownHandler;
