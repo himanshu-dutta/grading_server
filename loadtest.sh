@@ -43,6 +43,8 @@ fi
 Overall_throughput=0
 pResponsetime=0
 numDropped=0
+Overall_NSR=0
+Overall_time=0
 for file in ./build/client*.txt
 do
     echo "Looking at $file"
@@ -50,20 +52,15 @@ do
     NSR=$(grep "ART" $file | cut -d ',' -f 2 | cut -d ':' -f 2)
     LT=$(grep "ART" $file | cut -d ',' -f 3 | cut -d ':' -f 2)
 
-    if [[ $ART != "" ]]
-    then
-        throughput_i=$(bc <<< "scale=3; ($NSR * 1000000) / $LT")
-        Overall_throughput=$(bc <<< "scale=3; ($Overall_throughput + $throughput_i)")
-        temp=$(bc <<< "scale=3; ($ART * $loopNum)")
-        pResponsetime=$(bc <<< "scale=3; ($pResponsetime + $temp)")
-    else
-        numDropped=$(($numDropped+1))
-    fi
-
+    Overall_NSR=$(bc <<< "scale=3; ($Overall_NSR + $NSR)")
+    Overall_time=$(bc <<< "scale=3; ($Overall_time + $LT / 1000000)")
+    temp=$(bc <<< "scale=3; ($ART * $loopNum)")
+    pResponsetime=$(bc <<< "scale=3; ($pResponsetime + $temp)")
 done
 #calculate final response time
 total_req=$(($numClients * $loopNum))
 Avg_Response_time=$(bc <<< "scale=3; $pResponsetime / ($total_req*1000000)")
+Overall_throughput=$(bc <<< "scale=3; $Overall_NSR / $Overall_time")
 
 #sending rows to respective files
 echo "$numClients,$Overall_throughput" >> ./build/throughput.csv
