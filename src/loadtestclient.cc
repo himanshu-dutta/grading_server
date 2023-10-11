@@ -70,11 +70,8 @@ void loadTest(int connFd, std::string evaluationFileData,
     std::time_t reqEnTime = getTimeInMicroseconds();
 
     state.respTimes.push_back(reqEnTime - reqStTime);
-    // std::cout << "\033[32m"
-    //           << "Response Time #" << (idx + 1) << ": " << (respTimes.back())
-    //           << " microsecs" << std::endl
-    //           << "\033[0m";
     sleep(state.numSecs);
+    if (!gotSuccessfulResponse) return;
   }
 
   state.loopEnTime = getTimeInMicroseconds();
@@ -83,9 +80,9 @@ void loadTest(int connFd, std::string evaluationFileData,
   std::time_t respTimeSum = 0;
   for (auto rt : state.respTimes) respTimeSum += rt;
   std::time_t avgRespTime = respTimeSum / (uint)state.respTimes.size();
-  std::cout << "ART: " << avgRespTime << ",";
-  std::cout << "NSR: " << state.numSuccessfulResp << ",";
-  std::cout << "LT: " << loopTime << std::endl;
+  std::cout << "ART:" << avgRespTime << ",";
+  std::cout << "NSR:" << state.numSuccessfulResp << ",";
+  std::cout << "LT:" << loopTime << std::endl;
 }
 
 int main(int argc, char* argv[]) {
@@ -110,21 +107,23 @@ int main(int argc, char* argv[]) {
   LoadClientState lcState(numloops, sleeptimeseconds);
 
   while (lcState.numLoops > 0) {
-    std::cout << "numLoops: " << lcState.numLoops << std::endl;
+    std::cout << "Establishing connection for #request: " << lcState.numLoops
+              << std::endl;
     int conn_fd;
     sockaddr_in server_addr;
     check_error((conn_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) >= 0,
-                "error at socket creation");
+                "error at socket creation", false);
 
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(portno);
     server_addr.sin_addr.s_addr = inet_addr(serverIP.data());
 
-    check_error(connect(conn_fd, (struct sockaddr*)&server_addr,
-                        sizeof(server_addr)) >= 0,
-                "error at socket connect");
+    int connectResp;
+    check_error((connectResp = connect(conn_fd, (struct sockaddr*)&server_addr,
+                                       sizeof(server_addr)) >= 0),
+                "error at socket connect", false);
 
-    loadTest(conn_fd, data, lcState);
+    if (connectResp >= 0) loadTest(conn_fd, data, lcState);
 
     close(conn_fd);
   }
