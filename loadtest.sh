@@ -8,7 +8,7 @@ sleepTimeSeconds=$3
 #running number of clients
 for i in $(seq 1 $numClients)
 do
-    ./build/loadtestclient 192.168.230.154:5005 source.c $loopNum $sleepTimeSeconds > "./build/client${i}.txt" &
+    ./build/loadtestclient 192.168.117.154:5005 source.c $loopNum $sleepTimeSeconds > "./build/client${i}.txt" &
     pids[${i}]=$!
 done
 
@@ -52,10 +52,15 @@ do
     NSR=$(grep "ART" $file | cut -d ',' -f 2 | cut -d ':' -f 2)
     LT=$(grep "ART" $file | cut -d ',' -f 3 | cut -d ':' -f 2)
 
-    Overall_NSR=$(bc <<< "scale=3; ($Overall_NSR + $NSR)")
-    Overall_time=$(bc <<< "scale=3; ($Overall_time + $LT / 1000000)")
-    temp=$(bc <<< "scale=3; ($ART * $loopNum)")
-    pResponsetime=$(bc <<< "scale=3; ($pResponsetime + $temp)")
+    if [[ $ART != "" ]]
+    then
+        Overall_NSR=$(bc <<< "scale=3; ($Overall_NSR + $NSR)")
+        Overall_time=$(bc <<< "scale=3; ($Overall_time + $LT / 1000000)")
+        temp=$(bc <<< "scale=3; ($ART * $loopNum)")
+        pResponsetime=$(bc <<< "scale=3; ($pResponsetime + $temp)")
+    else
+        numDropped=$(($numDropped+1))
+    fi
 done
 #calculate final response time
 total_req=$(($numClients * $loopNum))
