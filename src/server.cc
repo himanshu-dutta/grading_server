@@ -72,8 +72,6 @@ int main(int argc, char* argv[]) {
     while (true) {
       autograder::Request* req =
           autograder::ServerProtocol::parseRequest(client_fd);
-      //   std::cout << "Received client request for: " << req->req_type
-      //             << std::endl;
       if (req->req_type == "ERROR") break;
       autograder::Response* resp = (*grader)(req);
       autograder::ServerProtocol::sendResponse(client_fd, resp);
