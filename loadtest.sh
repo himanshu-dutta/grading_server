@@ -8,7 +8,7 @@ sleepTimeSeconds=$3
 #running number of clients
 for i in $(seq 1 $numClients)
 do
-    ./build/loadtestclient 192.168.230.154:5005 source.c $loopNum $sleepTimeSeconds > "./build/client${i}.txt" &
+    ./build/loadtestclient 192.168.117.154:5005 source.c $loopNum $sleepTimeSeconds > "./build/client${i}.txt" &
     pids[${i}]=$!
 done
 
@@ -51,6 +51,11 @@ do
     ART=$(grep "ART" $file | cut -d ',' -f 1 | cut -d ':' -f 2)
     NSR=$(grep "ART" $file | cut -d ',' -f 2 | cut -d ':' -f 2)
     LT=$(grep "ART" $file | cut -d ',' -f 3 | cut -d ':' -f 2)
+
+    if [[ $ART == "" ]]
+    then
+        continue
+    fi
 
     Overall_NSR=$(bc <<< "scale=3; ($Overall_NSR + $NSR)")
     Overall_time=$(bc <<< "scale=3; ($Overall_time + $LT / 1000000)")
