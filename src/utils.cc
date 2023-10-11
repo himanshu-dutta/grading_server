@@ -3,10 +3,10 @@
 #include <errno.h>
 #include <string.h>
 
-void check_error(bool cond, std::string msg) {
+void check_error(bool cond, std::string msg, bool exitOnError) {
   if (!cond) {
     std::cout << msg << ": " << strerror(errno) << std::endl;
-    exit(1);
+    if (exitOnError) exit(1);
   }
 }
 

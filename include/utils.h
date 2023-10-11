@@ -8,7 +8,7 @@
 #include <string>
 #include <utility>
 
-void check_error(bool cond, std::string msg);
+void check_error(bool cond, std::string msg, bool exitOnError = true);
 std::pair<std::string, std::string> splitHostPort(std::string hp);
 std::string generateRandomString(int len);
 std::string readFileFromPath(std::string);
