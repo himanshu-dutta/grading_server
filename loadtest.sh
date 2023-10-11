@@ -52,15 +52,15 @@ do
     NSR=$(grep "ART" $file | cut -d ',' -f 2 | cut -d ':' -f 2)
     LT=$(grep "ART" $file | cut -d ',' -f 3 | cut -d ':' -f 2)
 
-    if [[ $ART != "" ]]
+    if [[ $ART == "" ]]
     then
-        Overall_NSR=$(bc <<< "scale=3; ($Overall_NSR + $NSR)")
-        Overall_time=$(bc <<< "scale=3; ($Overall_time + $LT / 1000000)")
-        temp=$(bc <<< "scale=3; ($ART * $loopNum)")
-        pResponsetime=$(bc <<< "scale=3; ($pResponsetime + $temp)")
-    else
-        numDropped=$(($numDropped+1))
+        continue
     fi
+
+    Overall_NSR=$(bc <<< "scale=3; ($Overall_NSR + $NSR)")
+    Overall_time=$(bc <<< "scale=3; ($Overall_time + $LT / 1000000)")
+    temp=$(bc <<< "scale=3; ($ART * $loopNum)")
+    pResponsetime=$(bc <<< "scale=3; ($pResponsetime + $temp)")
 done
 #calculate final response time
 total_req=$(($numClients * $loopNum))
