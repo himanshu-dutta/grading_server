@@ -1,5 +1,6 @@
 #include <arpa/inet.h>
 #include <fcntl.h>
+#include <pthread.h>
 #include <signal.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -47,6 +48,34 @@ class ServerState {
   }
 };
 
+class Application {
+ public:
+  autograder::Grader* grader;
+  Application(autograder::Grader* grader) : grader(grader) {}
+};
+
+Application* app;
+
+void* handler(void* client_fd_ptr) {
+  int client_fd = *(int*)client_fd_ptr;
+  std::cout << "================================================\n";
+  std::cout << "Connected to a client...\n";
+
+  while (true) {
+    autograder::Request* req =
+        autograder::ServerProtocol::parseRequest(client_fd);
+    //   std::cout << "Received client request for: " << req->req_type
+    //             << std::endl;
+    if (req->req_type == "ERROR") break;
+    autograder::Response* resp = (*app->grader)(req);
+    autograder::ServerProtocol::sendResponse(client_fd, resp);
+  }
+
+  close(client_fd);
+  std::cout << "================================================\n";
+  pthread_exit(NULL);
+}
+
 int main(int argc, char* argv[]) {
   //   signal(SIGINT, shutdownSignalHandler);
   //   signal(SIGKILL, shutdownSignalHandler);
@@ -90,8 +119,8 @@ int main(int argc, char* argv[]) {
   getcwd(cwd, BUFF_SIZE);
   std::cout << "WORKING DIR: " << cwd << std::endl;
 
-  autograder::Grader* grader =
-      new autograder::Grader(GRADER_ROOT_DIR, IDLE_OUT_FILE_PATH);
+  app = new Application(
+      new autograder::Grader(GRADER_ROOT_DIR, IDLE_OUT_FILE_PATH));
 
   int listener_fd, client_fd;
   sockaddr_in server_addr, client_addr;
@@ -123,20 +152,7 @@ int main(int argc, char* argv[]) {
         accept(listener_fd, (sockaddr*)&client_addr, &client_addr_len);
     check_error(client_fd >= 0, "accept error");
 
-    std::cout << "================================================\n";
-    std::cout << "Connected to a client...\n";
-
-    while (true) {
-      autograder::Request* req =
-          autograder::ServerProtocol::parseRequest(client_fd);
-      if (req->req_type == "ERROR") break;
-      autograder::Response* resp = (*grader)(req);
-      bool sentSuccessfully =
-          autograder::ServerProtocol::sendResponse(client_fd, resp);
-      if (sentSuccessfully) serverState->numSuccessfulReqResp++;
-    }
-
-    close(client_fd);
-    std::cout << "================================================\n";
+    pthread_t worker;
+    pthread_create(&worker, NULL, &handler, (void*)&client_fd);
   }
 }

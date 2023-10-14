@@ -57,6 +57,7 @@ void loadTest(int connFd, std::string evaluationFileData,
     sleep(state.numSecs);
     state.numLoops--;
   }
+
 }
 
 int main(int argc, char* argv[]) {
