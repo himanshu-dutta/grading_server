@@ -51,3 +51,10 @@ int randInt(int mn, int mx) {
   auto random_integer = uni(rng);
   return random_integer;
 }
+
+std::time_t getTimeInMicroseconds() {
+  timeval timestamp;
+  gettimeofday(&timestamp, NULL);
+  std::time_t tm = timestamp.tv_sec * 1000000 + timestamp.tv_usec;
+  return tm;
+}

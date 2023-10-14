@@ -1,5 +1,6 @@
 #pragma once
 #include <stdlib.h>
+#include <sys/time.h>
 
 #include <fstream>
 #include <iostream>
@@ -13,3 +14,4 @@ std::pair<std::string, std::string> splitHostPort(std::string hp);
 std::string generateRandomString(int len);
 std::string readFileFromPath(std::string);
 int randInt(int mn, int mx);
+std::time_t getTimeInMicroseconds();
