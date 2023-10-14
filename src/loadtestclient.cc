@@ -1,6 +1,5 @@
 #include <arpa/inet.h>
 #include <sys/socket.h>
-#include <sys/time.h>
 #include <unistd.h>
 
 #include <fstream>
@@ -14,6 +13,7 @@
 #include "utils.h"
 
 #define BACKLOG 8
+#define MAX_CONN_TRIES 3
 
 struct LoadClientState {
  public:
@@ -22,22 +22,13 @@ struct LoadClientState {
   int numSuccessfulResp;
   std::time_t loopStTime;
   std::time_t loopEnTime;
-  std::vector<std::time_t> respTimes;
   LoadClientState(int numLoops, int numSecs)
       : numLoops(numLoops),
         numSecs(numSecs),
         numSuccessfulResp(0),
         loopStTime(-1),
-        loopEnTime(-1),
-        respTimes(0) {}
+        loopEnTime(-1) {}
 };
-
-std::time_t getTimeInMicroseconds() {
-  timeval timestamp;
-  gettimeofday(&timestamp, NULL);
-  std::time_t tm = timestamp.tv_sec * 1000000 + timestamp.tv_usec;
-  return tm;
-}
 
 bool clientLoop(int connFd, std::string evaluationFileData) {
   bool sentRequestSuccessfully = autograder::ClientProtocol::sendRequest(
@@ -59,30 +50,13 @@ bool clientLoop(int connFd, std::string evaluationFileData) {
 void loadTest(int connFd, std::string evaluationFileData,
               LoadClientState& state) {
   state.numSecs = state.numSecs == -1 ? randInt(1, 5) : state.numSecs;
-  state.loopStTime = getTimeInMicroseconds();
 
-  while (state.numLoops--) {
-    std::time_t reqStTime = getTimeInMicroseconds();
-
+  while (state.numLoops) {
     bool gotSuccessfulResponse = clientLoop(connFd, evaluationFileData);
     state.numSuccessfulResp += gotSuccessfulResponse ? 1 : 0;
-
-    std::time_t reqEnTime = getTimeInMicroseconds();
-
-    state.respTimes.push_back(reqEnTime - reqStTime);
     sleep(state.numSecs);
-    if (!gotSuccessfulResponse) return;
+    state.numLoops--;
   }
-
-  state.loopEnTime = getTimeInMicroseconds();
-  std::time_t loopTime = state.loopEnTime - state.loopStTime;
-
-  std::time_t respTimeSum = 0;
-  for (auto rt : state.respTimes) respTimeSum += rt;
-  std::time_t avgRespTime = respTimeSum / (uint)state.respTimes.size();
-  std::cout << "ART:" << avgRespTime << ",";
-  std::cout << "NSR:" << state.numSuccessfulResp << ",";
-  std::cout << "LT:" << loopTime << std::endl;
 }
 
 int main(int argc, char* argv[]) {
@@ -105,10 +79,9 @@ int main(int argc, char* argv[]) {
     std::cout << "Either empty file or file doesn't exists\n";
 
   LoadClientState lcState(numloops, sleeptimeseconds);
-
-  while (lcState.numLoops > 0) {
-    std::cout << "Establishing connection for #request: " << lcState.numLoops
-              << std::endl;
+  int numConnTries = 0;
+  while (numConnTries < MAX_CONN_TRIES) {
+    std::cout << "Establishing connection" << std::endl;
     int conn_fd;
     sockaddr_in server_addr;
     check_error((conn_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) >= 0,
@@ -119,12 +92,25 @@ int main(int argc, char* argv[]) {
     server_addr.sin_addr.s_addr = inet_addr(serverIP.data());
 
     int connectResp;
+    lcState.loopStTime = getTimeInMicroseconds();
     check_error((connectResp = connect(conn_fd, (struct sockaddr*)&server_addr,
                                        sizeof(server_addr)) >= 0),
                 "error at socket connect", false);
 
-    if (connectResp >= 0) loadTest(conn_fd, data, lcState);
-
+    if (connectResp >= 0) {
+      loadTest(conn_fd, data, lcState);
+      lcState.loopEnTime = getTimeInMicroseconds();
+      std::time_t loopTime = lcState.loopEnTime - lcState.loopStTime;
+      std::time_t avgRespTime = loopTime / (uint)lcState.numSuccessfulResp;
+      std::cout << "ART:" << avgRespTime << ",";
+      std::cout << "NSR:" << lcState.numSuccessfulResp << ",";
+      std::cout << "LT:" << loopTime << std::endl;
+      break;
+    } else {
+      numConnTries++;
+      close(conn_fd);
+      continue;
+    }
     close(conn_fd);
   }
 
