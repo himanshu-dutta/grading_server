@@ -13,15 +13,40 @@
 #include "protocol.h"
 #include "utils.h"
 
-#define BACKLOG 16
+#define BACKLOG 1
+#define SIGSERV 10
 
 namespace {
 std::function<void(int)> shutdownHandler;
-void signalHandler(int signal) {
+void shutdownSignalHandler(int signal) {
   shutdownHandler(signal);
   exit(0);
 }
 }  // namespace
+
+namespace {
+std::function<void(int)> serverStateHandler;
+void serverStateSignalHandler(int signal) { serverStateHandler(signal); }
+}  // namespace
+
+class ServerState {
+ public:
+  time_t serverStartTime;
+  time_t serverEndTime;
+  int numSuccessfulReqResp;
+  bool startedRecording;
+  int numClients;
+  ServerState()
+      : serverStartTime(0),
+        serverEndTime(0),
+        numSuccessfulReqResp(0),
+        startedRecording(false) {}
+  void reset() {
+    serverStartTime = serverEndTime = 0;
+    numSuccessfulReqResp = 0;
+    startedRecording = false;
+  }
+};
 
 class Application {
  public:
@@ -52,11 +77,43 @@ void* handler(void* client_fd_ptr) {
 }
 
 int main(int argc, char* argv[]) {
-  signal(SIGINT, signalHandler);
-  signal(SIGKILL, signalHandler);
+  //   signal(SIGINT, shutdownSignalHandler);
+  //   signal(SIGKILL, shutdownSignalHandler);
+  signal(SIGSERV, serverStateSignalHandler);
 
   check_error(argc == 2, "Usage: ./server <port>");
   short portno = atoi(argv[1]);
+
+  ServerState* serverState = new ServerState();
+
+  serverStateHandler = [&](int sig) -> void {
+    std::cout << "Received signal: " << sig << std::endl;
+
+    if (!serverState->startedRecording) {
+      std::string numClientsStr = readFileFromPath("./numClients.txt");
+      serverState->numClients = atoi(numClientsStr.c_str());
+      serverState->serverStartTime = getTimeInMicroseconds();
+      serverState->startedRecording = true;
+    } else {
+      serverState->serverEndTime = getTimeInMicroseconds();
+      time_t duration =
+          (serverState->serverEndTime - serverState->serverStartTime);
+      float throughput = ((double)serverState->numSuccessfulReqResp * 1000000) /
+                         (double)duration;
+
+      std::ostringstream ostream;
+      ostream << "echo '" << serverState->numClients << "," << throughput
+              << "' >> serverrun.log";
+      //   std::cout << "\033[92m"
+      //             << "Running the cmd: " << ostream.str() << std::endl;
+      //   std::cout << "NUMSUCCESS: " << serverState->numSuccessfulReqResp
+      //             << ", DURATION: " << duration << std::endl
+      //             << "\033[0m";
+      system(ostream.str().c_str());
+      serverState->reset();
+    }
+    std::cout << "Processed signal: " << sig << std::endl;
+  };
 
   char cwd[BUFF_SIZE];
   getcwd(cwd, BUFF_SIZE);
