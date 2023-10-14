@@ -48,6 +48,8 @@ class ServerState {
   }
 };
 
+ServerState* serverState;
+
 class Application {
  public:
   autograder::Grader* grader;
@@ -68,7 +70,9 @@ void* handler(void* client_fd_ptr) {
     //             << std::endl;
     if (req->req_type == "ERROR") break;
     autograder::Response* resp = (*app->grader)(req);
-    autograder::ServerProtocol::sendResponse(client_fd, resp);
+    bool sentSuccessfully =
+        autograder::ServerProtocol::sendResponse(client_fd, resp);
+    if (sentSuccessfully) serverState->numSuccessfulReqResp++;
   }
 
   close(client_fd);
@@ -84,7 +88,7 @@ int main(int argc, char* argv[]) {
   check_error(argc == 2, "Usage: ./server <port>");
   short portno = atoi(argv[1]);
 
-  ServerState* serverState = new ServerState();
+  serverState = new ServerState();
 
   serverStateHandler = [&](int sig) -> void {
     std::cout << "Received signal: " << sig << std::endl;
