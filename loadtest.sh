@@ -4,11 +4,12 @@
 numClients=$1
 loopNum=$2
 sleepTimeSeconds=$3
+timeout=1
 
 #running number of clients
 for i in $(seq 1 $numClients)
 do
-    ./build/loadtestclient 0.0.0.0:5005 source.c $loopNum $sleepTimeSeconds > "./build/client${i}.txt" &
+    ./build/loadtestclient 0.0.0.0:5005 source.c $loopNum $sleepTimeSeconds $timeout> "./build/client${i}.txt" &
     pids[${i}]=$!
 
 done
@@ -24,6 +25,7 @@ done
 tpfile="./build/throughput.csv"
 rtfile="./build/responsetime.csv"
 ndfile="./build/numDropped.csv"
+toutfile="./build/numTimeout.csv"
 
 #adding header initially file will not be there
 if [[ ! -f $tpfile ]] 
@@ -41,20 +43,27 @@ then
     echo "M,Num_Clients_Dropped" > ./build/numDropped.csv
 fi
 
+if [[ ! -f $toutfile ]] 
+then
+    echo "M,Num_timeout" > ./build/numTimeout.csv
+fi
+
 #read individual throughput, add them and calculate partial response time
 Overall_throughput=0
 pResponsetime=0
 numDropped=0
 Overall_NSR=0
 Overall_time=0
+AvgTout=0
 for file in ./build/client*.txt
 do
     echo "Looking at $file"
-    ART=$(grep "ART" $file | cut -d ',' -f 1 | cut -d ':' -f 2)
-    NSR=$(grep "ART" $file | cut -d ',' -f 2 | cut -d ':' -f 2)
-    LT=$(grep "ART" $file | cut -d ',' -f 3 | cut -d ':' -f 2)
+    ATiOUT=$(grep "ATiOUT" $file | cut -d ',' -f 1 | cut -d ':' -f 2)
+    ART=$(grep "ATiOUT" $file | cut -d ',' -f 2 | cut -d ':' -f 2)
+    NSR=$(grep "ATiOUT" $file | cut -d ',' -f 3 | cut -d ':' -f 2)
+    LT=$(grep "ATiOUT" $file | cut -d ',' -f 4 | cut -d ':' -f 2)
 
-    if [[ $ART == "" ]]
+    if [[ $ATiOUT == "" ]]
     then
         continue
     fi
@@ -63,9 +72,10 @@ do
     Overall_time=$(bc <<< "scale=3; ($Overall_time + $LT / 1000000)")
     temp=$(bc <<< "scale=3; ($ART * $loopNum)")
     pResponsetime=$(bc <<< "scale=3; ($pResponsetime + $temp)")
+    AvgTout=$(bc <<< "scale=3; ($AvgTout + $ATiOUT)")
 done
 #calculate final response time
-total_req=$(($numClients * $loopNum))
+total_req=$(bc <<< "scale=3; $numClients * $loopNum")
 Avg_Response_time=$(bc <<< "scale=3; $pResponsetime / ($total_req*1000000)")
 Overall_throughput=$(bc <<< "scale=3; $Overall_NSR / $Overall_time")
 
@@ -73,6 +83,7 @@ Overall_throughput=$(bc <<< "scale=3; $Overall_NSR / $Overall_time")
 echo "$numClients,$Overall_throughput" >> ./build/throughput.csv
 echo "$numClients,$Avg_Response_time" >> ./build/responsetime.csv
 echo "$numClients,$numDropped" >> ./build/numDropped.csv
+echo "$numClients,$AvgTout" >> ./build/numTimeout.csv
 
 if [[ $numDropped -gt 0 ]]
 then
