@@ -9,14 +9,15 @@ sleepTimeSeconds=$3
 for i in $(seq 1 $numClients)
 do
     ./build/loadtestclient 0.0.0.0:5005 source.c $loopNum $sleepTimeSeconds > "./build/client${i}.txt" &
-
     pids[${i}]=$!
+
 done
 
 #waiting for all the client to done all request and get corresponding responses
-for pid in ${pids[*]}
+for i in $(seq 1 $numClients)
 do
-    wait $pid
+    wait ${pids[i]}
+    # rm ./build/client${i}.txt
 done
 
 #giving path to the file going to be created

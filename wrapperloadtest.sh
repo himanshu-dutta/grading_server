@@ -2,7 +2,7 @@
 
 
 timesDropped=0
-numClients=4
+numClients=24
 clientIncr=4
 DESIREDDROPS=4
 
@@ -10,7 +10,9 @@ while [[ $timesDropped -lt $DESIREDDROPS ]]
 do
     echo "============================================================"
     ./build/signalSender 0.0.0.0:8000 $numClients
+    sleep 2
     ./loadtest.sh $numClients 5 0
+    sleep 2
     ./build/signalSender 0.0.0.0:8000 $numClients
     numDropped=$?
     if [[ numDropped -gt 0 ]]

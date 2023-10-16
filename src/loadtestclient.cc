@@ -1,8 +1,10 @@
 #include <arpa/inet.h>
+#include <fcntl.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
 #include <fstream>
+#include <functional>
 #include <iostream>
 #include <sstream>
 
@@ -12,16 +14,28 @@
 #include "types.h"
 #include "utils.h"
 
-#define BACKLOG 8
+#define BACKLOG 1
 #define MAX_CONN_TRIES 3
+
+void setNonBlocking(int sockfd) {
+  int flags = fcntl(sockfd, F_GETFL, 0);
+  if (flags == -1) {
+    perror("fcntl");
+    exit(EXIT_FAILURE);
+  }
+  if (fcntl(sockfd, F_SETFL, flags | O_NONBLOCK) == -1) {
+    perror("fcntl");
+    exit(EXIT_FAILURE);
+  }
+}
 
 struct LoadClientState {
  public:
   int numLoops;
   int numSecs;
   int numSuccessfulResp;
-  std::time_t loopStTime;
-  std::time_t loopEnTime;
+  long loopStTime;
+  long loopEnTime;
   LoadClientState(int numLoops, int numSecs)
       : numLoops(numLoops),
         numSecs(numSecs),
@@ -57,8 +71,23 @@ void loadTest(int connFd, std::string evaluationFileData,
     sleep(state.numSecs);
     state.numLoops--;
   }
-
 }
+
+pthread_t conn_th;
+pthread_mutex_t conn_mu;
+pthread_cond_t conn_cond;
+sockaddr_in server_addr;
+int connectResp;
+
+void* connectWrapper(void* conn_fd_ptr) {
+  int conn_fd = *(int*)conn_fd_ptr;
+  int connectResp;
+  check_error((connectResp = connect(conn_fd, (struct sockaddr*)&server_addr,
+                                     sizeof(server_addr)) >= 0),
+              "error at socket connect", true);
+  pthread_cond_signal(&conn_cond);
+  return NULL;
+};
 
 int main(int argc, char* argv[]) {
   check_error(argc == 5,
@@ -81,40 +110,54 @@ int main(int argc, char* argv[]) {
 
   LoadClientState lcState(numloops, sleeptimeseconds);
   int numConnTries = 0;
-  while (numConnTries < MAX_CONN_TRIES) {
-    std::cout << "Establishing connection" << std::endl;
-    int conn_fd;
-    sockaddr_in server_addr;
-    check_error((conn_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) >= 0,
-                "error at socket creation", false);
+  //   while (numConnTries < MAX_CONN_TRIES) {
+  std::cout << "Creating socket" << std::endl;
+  int conn_fd;
 
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(portno);
-    server_addr.sin_addr.s_addr = inet_addr(serverIP.data());
+  check_error((conn_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) >= 0,
+              "error at socket creation", false);
 
-    int connectResp;
-    lcState.loopStTime = getTimeInMicroseconds();
-    check_error((connectResp = connect(conn_fd, (struct sockaddr*)&server_addr,
-                                       sizeof(server_addr)) >= 0),
-                "error at socket connect", false);
+  server_addr.sin_family = AF_INET;
+  server_addr.sin_port = htons(portno);
+  server_addr.sin_addr.s_addr = inet_addr(serverIP.data());
 
-    if (connectResp >= 0) {
-      loadTest(conn_fd, data, lcState);
-      lcState.loopEnTime = getTimeInMicroseconds();
-      std::time_t loopTime = lcState.loopEnTime - lcState.loopStTime;
-      std::time_t avgRespTime = loopTime / (uint)lcState.numSuccessfulResp;
-      std::cout << "ART:" << avgRespTime << ",";
-      std::cout << "NSR:" << lcState.numSuccessfulResp << ",";
-      std::cout << "LT:" << loopTime << std::endl;
-      break;
-    } else {
-      numConnTries++;
-      close(conn_fd);
-      continue;
-    }
+  std::cout << "Trying to establish connection " << std::endl;
+  connectResp = -1;
+  lcState.loopStTime = getTimeInMicroseconds();
+
+  pthread_cond_init(&conn_cond, NULL);
+  pthread_mutex_init(&conn_mu, NULL);
+  pthread_create(&conn_th, NULL, &connectWrapper, &conn_fd);
+  struct timeval tv;
+  struct timespec ts;
+  gettimeofday(&tv, NULL);
+  ts.tv_sec = time(NULL) + 5000 / 1000;
+  ts.tv_nsec = tv.tv_usec * 1000 + 1000 * 1000 * (5000 % 1000);
+  ts.tv_sec += ts.tv_nsec / (1000 * 1000 * 1000);
+  ts.tv_nsec %= (1000 * 1000 * 1000);
+
+  std::cout << "Before connection\n";
+  int n = pthread_cond_timedwait(&conn_cond, &conn_mu, &ts);
+
+  if (n >= 0) {
+    std::cout << "Established connection\n";
+    loadTest(conn_fd, data, lcState);
+    lcState.loopEnTime = getTimeInMicroseconds();
+    long loopTime = lcState.loopEnTime - lcState.loopStTime;
+    long avgRespTime = loopTime / (uint)lcState.numSuccessfulResp;
+    std::cout << "ART:" << avgRespTime << ",";
+    std::cout << "NSR:" << lcState.numSuccessfulResp << ",";
+    std::cout << "LT:" << loopTime << std::endl;
+    // break;
+  } else {
+    std::cout << "Failed to establish connection\n";
+    numConnTries++;
     close(conn_fd);
+    // continue;
   }
 
-  //   clientLoop(host, portno, evaluationFilePath);
+  close(conn_fd);
+  //   }
+
   return 0;
 }

@@ -1,4 +1,4 @@
-FROM ubuntu:22.04
+FROM --platform=arm64 ubuntu:22.04
 
 RUN apt update -y
 RUN apt install build-essential -y
