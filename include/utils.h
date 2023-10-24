@@ -1,6 +1,8 @@
 #pragma once
+#include <arpa/inet.h>
 #include <stdlib.h>
 #include <sys/time.h>
+#include <unistd.h>
 
 #include <fstream>
 #include <iostream>
@@ -15,3 +17,5 @@ std::string generateRandomString(int len);
 std::string readFileFromPath(std::string);
 int randInt(int mn, int mx);
 long getTimeInMicroseconds();
+sockaddr_in getSockaddrIn(std::string ip, short port);
+void logCWD();

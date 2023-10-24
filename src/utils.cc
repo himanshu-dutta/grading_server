@@ -58,3 +58,19 @@ long getTimeInMicroseconds() {
   long tm = timestamp.tv_sec * 1000000 + timestamp.tv_usec;
   return tm;
 }
+
+sockaddr_in getSockaddrIn(std::string ip, short port) {
+  sockaddr_in addr;
+  addr.sin_family = AF_INET;
+  addr.sin_port = htons(port);
+  addr.sin_addr.s_addr = inet_addr(ip.data());
+  return addr;
+}
+
+void logCWD() {
+  const int BUFF_SIZE = 1024;
+  char* cwd = new char[BUFF_SIZE];
+  getcwd(cwd, BUFF_SIZE);
+  std::cout << "WORKING DIR: " << cwd << std::endl;
+  delete[] cwd;
+}
