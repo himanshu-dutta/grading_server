@@ -35,5 +35,6 @@
 # Folders
 .vscode
 .DS_Store
-data/
+build/
+samples/
 logs/
