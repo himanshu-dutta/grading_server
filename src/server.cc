@@ -12,6 +12,7 @@
 #include "grader.h"
 #include "logger.h"
 #include "protocol.h"
+#include "threadpool.h"
 #include "utils.h"
 
 #define BACKLOG 1
@@ -66,9 +67,11 @@ int main(int argc, char* argv[]) {
   signal(SIGKILL, shutdownSignalHandler);
 
   // parsing the arguments
-  check_error(argc == 2 || argc == 3, "Usage: ./server <port> <logFilePath>");
+  check_error(argc == 3 || argc == 4,
+              "Usage: ./server <port> <threadpoolSize> <logFilePath>");
   short portno = atoi(argv[1]);
-  std::string logFilePath(argv[2]);
+  int threadpoolSize = atoi(argv[2]);
+  std::string logFilePath(argv[3]);
 
   // logging the working directory
   logCWD();
@@ -92,8 +95,14 @@ int main(int argc, char* argv[]) {
       "bind error");
   check_error((listen(listener_fd, BACKLOG)) >= 0, "listen error");
 
+  autograder::Threadpool threadpool(threadpoolSize);
+  std::function<void*(void*)> threadFunc = [&](void* args) -> void* {
+    return app->handler(args);
+  };
+
   shutdownHandler = [&](int sig) -> void {
     std::cerr << "Shutting the server down, yo!\n";
+    threadpool.close();
     close(listener_fd);
   };
 
@@ -102,7 +111,7 @@ int main(int argc, char* argv[]) {
     int client_fd =
         accept(listener_fd, (sockaddr*)&client_addr, &client_addr_len);
     check_error(client_fd >= 0, "accept error");
-    app->handler(&client_fd);
+    threadpool.queueJob(threadFunc, &client_fd);
   }
 }
 // #############################################################################
