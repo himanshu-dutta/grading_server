@@ -12,10 +12,11 @@
 #include "grader.h"
 #include "logger.h"
 #include "protocol.h"
+#include "tcpsocket.h"
 #include "threadpool.h"
 #include "utils.h"
 
-#define BACKLOG 1
+#define BACKLOG 16
 
 autograder::FileLogger* logger;
 
@@ -37,22 +38,22 @@ class Application {
   autograder::Grader* grader;
   Application(autograder::Grader* grader) : grader(grader) {}
 
-  void* handler(void* client_fd_ptr) {
-    int client_fd = *(int*)client_fd_ptr;
+  void* handler(void* clientFdPtr) {
+    int clientFd = *(int*)clientFdPtr;
     std::cout << "================================================\n";
     std::cout << "Connected to a client...\n";
 
     while (true) {
       autograder::Request* req =
-          autograder::ServerProtocol::parseRequest(client_fd);
+          autograder::ServerProtocol::parseRequest(clientFd);
       if (req->req_type == "ERROR") break;
       autograder::Response* resp = (*grader)(req);
       bool sentSuccessfully =
-          autograder::ServerProtocol::sendResponse(client_fd, resp);
+          autograder::ServerProtocol::sendResponse(clientFd, resp);
       if (sentSuccessfully) logger->info("sent response successfully");
     }
 
-    close(client_fd);
+    close(clientFd);
     std::cout << "================================================\n";
     return nullptr;
   }
@@ -80,20 +81,7 @@ int main(int argc, char* argv[]) {
   Application* app = new Application(
       new autograder::Grader(GRADER_ROOT_DIR, IDLE_OUT_FILE_PATH));
 
-  int listener_fd, client_fd;
-  sockaddr_in server_addr = getSockaddrIn(SERVER_IP, portno), client_addr;
-  check_error((listener_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) >= 0,
-              "error at socket creation");
-
-  const int32_t enable = 1;
-  check_error((setsockopt(listener_fd, SOL_SOCKET, SO_REUSEADDR, &enable,
-                          sizeof(int))) >= 0,
-              "setsockopt error");
-
-  check_error(
-      (bind(listener_fd, (sockaddr*)&server_addr, sizeof(server_addr))) >= 0,
-      "bind error");
-  check_error((listen(listener_fd, BACKLOG)) >= 0, "listen error");
+  int listenerFd = autograder::setupTCPSocket(SERVER_IP, portno, BACKLOG, true);
 
   autograder::Threadpool threadpool(threadpoolSize);
   std::function<void*(void*)> threadFunc = [&](void* args) -> void* {
@@ -103,15 +91,16 @@ int main(int argc, char* argv[]) {
   shutdownHandler = [&](int sig) -> void {
     std::cerr << "Shutting the server down, yo!\n";
     threadpool.close();
-    close(listener_fd);
+    close(listenerFd);
   };
 
   while (true) {
-    socklen_t client_addr_len = sizeof(client_addr);
-    int client_fd =
-        accept(listener_fd, (sockaddr*)&client_addr, &client_addr_len);
-    check_error(client_fd >= 0, "accept error");
-    threadpool.queueJob(threadFunc, &client_fd);
+    sockaddr_in clientAddr;
+    socklen_t clientAddrLen = sizeof(clientAddr);
+    int clientFd = accept(listenerFd, (sockaddr*)&clientAddr, &clientAddrLen);
+    check_error(clientFd >= 0, "accept error");
+    threadpool.queueJob(threadFunc, &clientFd);
+    // threadFunc(&client_fd);
   }
 }
 // #############################################################################

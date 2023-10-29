@@ -8,6 +8,7 @@
 #include <functional>
 #include <iostream>
 
+#include "tcpsocket.h"
 #include "utils.h"
 
 const int measureIntervalSecs = 10;
@@ -39,12 +40,21 @@ int spawnServerProcess(std::string serverBinPath, short portno,
   return procId;
 }
 
-void* serverMeasure(void* argsPtr) {
-  std::vector<void*> args = *((std::vector<void*>*)argsPtr);
+struct ServerMeasureArgs {
+ public:
+  int serverPid;
+  int intervalSecs;
+  bool* continueMeasuring;
+  ServerMeasureArgs(int s, int i, bool* c)
+      : serverPid(s), intervalSecs(i), continueMeasuring(c) {}
+};
 
-  int serverPid = *((int*)args[0]);
-  int intervalSecs = *((int*)args[1]);
-  bool* continueMeasuring = (bool*)args[2];
+void* serverMeasure(void* argsPtr) {
+  ServerMeasureArgs* args = (ServerMeasureArgs*)argsPtr;
+
+  int serverPid = args->serverPid;
+  int intervalSecs = args->intervalSecs;
+  bool* continueMeasuring = args->continueMeasuring;
 
   std::vector<std::vector<double>*>* measurements =
       new std::vector<std::vector<double>*>();
@@ -90,6 +100,7 @@ void* serverMeasure(void* argsPtr) {
 
     sleep(intervalSecs);
   }
+
   return measurements;
 }
 
@@ -106,19 +117,7 @@ int main(int argc, char* argv[]) {
   long startTime, endTime;
 
   // setting up the server environment
-  int listenerFd;
-  sockaddr_in serverAddr = getSockaddrIn("0.0.0.0", portNo);
-
-  check_error((listenerFd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) >= 0,
-              "error at socket creation");
-  const int32_t enable = 1;
-  check_error((setsockopt(listenerFd, SOL_SOCKET, SO_REUSEADDR, &enable,
-                          sizeof(int))) >= 0,
-              "setsockopt error");
-  check_error(
-      (bind(listenerFd, (sockaddr*)&serverAddr, sizeof(serverAddr))) >= 0,
-      "bind error");
-  check_error((listen(listenerFd, 1)) >= 0, "listen error");
+  int listenerFd = autograder::setupTCPSocket("0.0.0.0", portNo, 4, true);
 
   bool serverSpawned = false;
   int serverPid = -1;
@@ -127,47 +126,48 @@ int main(int argc, char* argv[]) {
   bool* continueMeasurnig = new bool;
   pthread_t serverMeasureTh;
 
-  while (true) {
-    std::cout << "\033[92m"
-              << "Waiting for perfclient"
-              << "\033[0m" << std::endl;
+  std::ostringstream ostream;
+  ostream
+      << "echo 'num_clients,throughput,avg_num_threads,avg_cpu_utilization' > "
+      << logFilePath;
+  system(ostream.str().c_str());
+  ostream.str("");
+  ostream.clear();
 
+  while (true) {
     sockaddr_in clientAddr;
     socklen_t clientAddrLen = sizeof(clientAddr);
     int clientFd = accept(listenerFd, (sockaddr*)&clientAddr, &clientAddrLen);
     check_error(clientFd >= 0, "accept error");
 
-    std::cout << "\033[92m"
-              << "Got a perfclient"
-              << "\033[0m" << std::endl;
+    check_error(
+        (read(clientFd, &numClients, sizeof(numClients)) > 0),
+        "perfserver - error while reading number of clients from perfclient");
 
-    check_error((read(clientFd, &numClients, sizeof(numClients)) > 0),
-                "error while reading number of clients from perfclient");
-
-    check_error(numClients > 0, "received number of clients as 0");
+    check_error(numClients > 0, "perfserver - received number of clients as 0");
 
     if (!serverSpawned) {
       std::cout << "\033[92m"
                 << "Starting performance test for " << numClients << " clients"
                 << "\033[0m" << std::endl;
+
+      ostream << "/Users/himanshu/Projects/DECS_Project/logs/server_run_"
+              << numClients << ".log";
+      serverLogFilePath = ostream.str();
+      ostream.str("");
+      ostream.clear();
+
       // spawn a new server process
       // retain its process id for future use
-      std::ostringstream ostream;
-      ostream << "./logs/server_run_" << numClients << ".log";
-      serverLogFilePath = ostream.str();
       serverPid = spawnServerProcess(serverBinPath, serverPortNo,
                                      serverThreadpoolSize, serverLogFilePath);
 
       // run a thread for measuring CPU utilization
       // and number of threads
       *continueMeasurnig = true;
-      std::vector<void*> serverMeasureArgs{
-          (void*)&serverPid,
-          (void*)&measureIntervalSecs,
-          (void*)continueMeasurnig,
-      };
-      pthread_create(&serverMeasureTh, NULL, serverMeasure,
-                     (void*)&serverMeasureArgs);
+      ServerMeasureArgs* smargs = new ServerMeasureArgs(
+          serverPid, measureIntervalSecs, continueMeasurnig);
+      pthread_create(&serverMeasureTh, NULL, serverMeasure, (void*)smargs);
 
       // set server spawnned to true
       serverSpawned = true;
@@ -176,7 +176,7 @@ int main(int argc, char* argv[]) {
       // respond to the perfclient
       int success = 1;
       check_error(write(clientFd, &success, sizeof(success)) >= 0,
-                  "error while responding to the perfclient");
+                  "perfserver - error while responding to the perfclient");
     } else {
       std::cout << "\033[92m"
                 << "Ending performance test for " << numClients << " clients..."
@@ -204,11 +204,12 @@ int main(int argc, char* argv[]) {
       double avgNumThreads = calcAvg(serverMeasureRes->at(0));
       double avgCPUUtil = calcAvg(serverMeasureRes->at(1));
 
-      std::ostringstream ostream;
       ostream << "echo \"" << numClients << "," << throughput << ","
               << avgNumThreads << "," << avgCPUUtil << "\""
               << ">> " << logFilePath;
       system(ostream.str().c_str());
+      ostream.str("");
+      ostream.clear();
 
       // reset state
       serverSpawned = false;
@@ -218,7 +219,7 @@ int main(int argc, char* argv[]) {
       // respond to the perfclient
       int success = 1;
       check_error(write(clientFd, &success, sizeof(success)) >= 0,
-                  "error while responding to the perfclient");
+                  "perfserver - error while responding to the perfclient");
     }
 
     close(clientFd);

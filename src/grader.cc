@@ -47,6 +47,7 @@ std::pair<bool, std::string> Grader::grade(std::string fileContents) {
   };
 
   auto [fileName, filePath] = saveFileToDisk(rootDir, fileContents, "c");
+  auto sourceFilePath = filePath;
   auto compileErrLogFPath = fileWithExt(filePath, "c.log");
   auto runOutLogFPath = fileWithExt(filePath, "o.log");
   auto runErrLogFPath = fileWithExt(filePath, "e.log");
@@ -60,6 +61,7 @@ std::pair<bool, std::string> Grader::grade(std::string fileContents) {
     std::remove(diffOutLogFPath.c_str());
     std::remove(diffOutLogFPath.c_str());
     std::remove(executablePath.c_str());
+    std::remove(sourceFilePath.c_str());
   };
 
   // compilation
