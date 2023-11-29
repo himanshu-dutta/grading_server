@@ -10,12 +10,14 @@ $ ./build/server 5005 32 logs/serv.log
 
 Note: The `BACKLOG` parameter in src/server.c is the bottleneck parameter, on which the results of loadtesting depends. You may tweak that to see different levels of load tolerance.
 
-To make client request: `./build/client <serverIP:port> <sourceCodeFileTobeGraded> <timeout>`
+To make client request: `./client <new|status> <serverIP:port> <sourceCodeFileTobeGraded|requestID>`
 
 Example:
 
 ```
-$ ./build/client 0.0.0.0:5005 samples/compile_error.c 2
+$ ./build/client new 0.0.0.0:5005 samples/compile_error.c
+
+$ ./build/client status 0.0.0.0:5005 67dad33a-e7ef-4abe-a756-e20471cc158a
 ```
 
 # Performance Testing
