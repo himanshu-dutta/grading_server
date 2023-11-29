@@ -23,6 +23,7 @@ int main(int argc, char* argv[]) {
   short portno = atoi(port.data());
 
   if (reqType == "status") {
+    // handling of status check request
     std::string token = argv[3];
     int connFd;
     check_error((connFd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) >= 0,
@@ -51,6 +52,7 @@ int main(int argc, char* argv[]) {
     if (found != std::string::npos) exit(0);
     exit(1);
   } else if (reqType == "new") {
+    // handling of new grading request
     std::string evaluationFilePath = argv[3];
     std::string data = readFileFromPath(evaluationFilePath);
     int numTry = 0;
