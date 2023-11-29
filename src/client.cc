@@ -16,7 +16,7 @@
 
 int main(int argc, char* argv[]) {
   check_error(argc == 3,
-              "Usage: ./server <serverIP:port> <sourceCodeFileTobeGraded>");
+              "Usage: ./client <serverIP:port> <sourceCodeFileTobeGraded>");
   auto [host, port] = splitHostPort(argv[1]);
   std::string evaluationFilePath = argv[2];
   short portno = atoi(port.data());
