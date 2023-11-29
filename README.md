@@ -1,6 +1,7 @@
 # Regular Client-Server operation
 
 To start server: `./server <port>`
+
 Example:
 
 ```
@@ -10,6 +11,7 @@ $ ./build/server 5005
 Note: The `BACKLOG` parameter in src/server.c is the bottleneck parameter, on which the results of loadtesting depends. You may tweak that to see different levels of load tolerance.
 
 To make client request: `./client <serverIP:port> <sourceCodeFileTobeGraded>`
+
 Example:
 
 ```
