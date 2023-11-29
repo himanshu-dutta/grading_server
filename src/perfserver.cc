@@ -68,8 +68,11 @@ void* serverMeasure(void* argsPtr) {
   while (*continueMeasuring) {
     char numThreadsOut[1024];
     FILE* fp;
-
+#ifdef __APPLE__
     ostream << "ps -M " << serverPid << " | grep -v USER | wc -l";
+#else
+    ostream << "ps -o nlwp --no-header " << serverPid;
+#endif
     fp = popen(ostream.str().c_str(), "r");
     if (!fp) continue;
     if (fgets(numThreadsOut, sizeof(numThreadsOut), fp) == NULL) continue;
@@ -84,9 +87,15 @@ void* serverMeasure(void* argsPtr) {
     ostream.clear();
 
     char cpuUtlilOut[1024];
+
+#ifdef __APPLE__
     fp = popen(
         "top -l  2 | grep -E \"^CPU\" | tail -1 | awk '{ print $3 + $5 }'",
         "r");
+#else
+    fp = popen("echo $[100- $(vmstat 1 2| tail -1 | awk '{print $15}')]", "r");
+#endif
+
     if (!fp) continue;
     if (fgets(cpuUtlilOut, sizeof(cpuUtlilOut), fp) == NULL) continue;
     std::string cpuUtlilOutStr(cpuUtlilOut);
