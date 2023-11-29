@@ -4,7 +4,7 @@ INCLUDE_DIR=./include
 
 CC=g++
 CFLAGS=-std=c++17 -I$(INCLUDE_DIR)
-LFLAGS=-lpthread
+LFLAGS=-lpthread -pthread
 
 LIB_OBJS=protocol.o tcpsocket.o utils.o logger.o
 
@@ -14,13 +14,13 @@ server: server.o grader.o $(LIB_OBJS)
 	$(CC) $(CFLAGS) $(LFLAGS) -o $(BUILD_DIR)/$@ $(patsubst %,$(BUILD_DIR)/%,$?)
 
 perfserver: perfserver.o $(LIB_OBJS)
-	$(CC) $(CFLAGS) -o $(BUILD_DIR)/$@ $(patsubst %,$(BUILD_DIR)/%,$?)
+	$(CC) $(CFLAGS) $(LFLAGS) -o $(BUILD_DIR)/$@ $(patsubst %,$(BUILD_DIR)/%,$?)
 
 client: client.o $(LIB_OBJS)
-	$(CC) $(CFLAGS) -o $(BUILD_DIR)/$@ $(patsubst %,$(BUILD_DIR)/%,$?)
+	$(CC) $(CFLAGS) $(LFLAGS) -o $(BUILD_DIR)/$@ $(patsubst %,$(BUILD_DIR)/%,$?)
 
 perfclient: perfclient.o $(LIB_OBJS)
-	$(CC) $(CFLAGS) -o $(BUILD_DIR)/$@ $(patsubst %,$(BUILD_DIR)/%,$?)
+	$(CC) $(CFLAGS) $(LFLAGS) -o $(BUILD_DIR)/$@ $(patsubst %,$(BUILD_DIR)/%,$?)
 
 %.o: $(SRC_DIR)/%.cc
 	$(CC) -c $(CFLAGS) -o $(BUILD_DIR)/$@ $<

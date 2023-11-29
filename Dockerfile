@@ -9,4 +9,4 @@ COPY . .
 RUN make clean
 RUN make
 
-CMD ["./build/server", "80"]
+CMD ["./build/server", "80", "32", "./logs/serv.log"]
