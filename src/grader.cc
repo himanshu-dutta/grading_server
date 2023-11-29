@@ -13,26 +13,73 @@
 namespace autograder {
 
 Grader::Grader(std::string rootDir, std::string idleOutFilePath)
-    : rootDir(rootDir), idleOutFilePath(idleOutFilePath){};
+    : rootDir(rootDir), idleOutFilePath(idleOutFilePath) {
+  clientInfo = new std::unordered_map<std::string, ClientInfo*>();
+};
 
 Response* Grader::operator()(Request* req) {
   Response* resp;
   if (req->req_type == "CHECK") {
-    auto [gradingRes, gradingLog] = grade(req->body);
-    std::cout << "===Got Grader Response===\n";
+    ClientInfo* ci = new ClientInfo(generate_uuid_v4(), req->body);
+    clientInfo->insert_or_assign(ci->token, ci);
+    std::string respText = ci->token + ": " + ci->statusStr;
+
+    auto [fileName, filePath] =
+        saveFileToDisk(rootDir, req->body, "c", ci->token);
+
     resp = ServerProtocol::generateResponse(
         req->req_type,
         {
-            {"Content-Length", std::to_string(gradingLog.length())},
+            {"Content-Length", std::to_string(respText.length())},
         },
-        gradingLog);
+        respText);
+
+  } else if (req->req_type == "STATUS") {
+    std::string token = req->body;
+    std::unordered_map<std::string, ClientInfo*>::const_iterator info =
+        clientInfo->find(token);
+    if (info == clientInfo->end()) {
+      std::string respBody = token + ": " + "no pending request for this token";
+      resp = ServerProtocol::generateResponse(
+          req->req_type,
+          {
+              {"Content-Length", std::to_string(respBody.length())},
+          },
+          respBody);
+    } else {
+      ClientInfo* ci = info->second;
+      if (ci->status == ClientStatus::DONE) {
+        // REQ DONE
+        std::string respBody = token + ": " + ci->gradingLog;
+        resp = ServerProtocol::generateResponse(
+            req->req_type,
+            {
+                {"Content-Length", std::to_string(respBody.length())},
+            },
+            respBody);
+
+        // DELETE INFO & LOG
+        clientInfo->erase(ci->token);
+      } else {
+        // REQ IN PROGRESS
+        std::string respBody = token + ": " + ci->statusStr;
+        resp = ServerProtocol::generateResponse(
+            req->req_type,
+            {
+                {"Content-Length", std::to_string(respBody.length())},
+            },
+            respBody);
+      }
+    }
   }
 
   return resp;
 }
 
-std::pair<bool, std::string> Grader::grade(std::string fileContents) {
+std::pair<bool, std::string> Grader::grade(std::string fileContents,
+                                           std::string token) {
   std::ostringstream ostream;
+  ClientInfo* ci = (*clientInfo)[token];
 
   auto resetOStream = [&]() {
     ostream.str("");
@@ -46,7 +93,7 @@ std::pair<bool, std::string> Grader::grade(std::string fileContents) {
     return executablePath;
   };
 
-  auto [fileName, filePath] = saveFileToDisk(rootDir, fileContents, "c");
+  auto [fileName, filePath] = saveFileToDisk(rootDir, fileContents, "c", token);
   auto sourceFilePath = filePath;
   auto compileErrLogFPath = fileWithExt(filePath, "c.log");
   auto runOutLogFPath = fileWithExt(filePath, "o.log");
@@ -74,9 +121,13 @@ std::pair<bool, std::string> Grader::grade(std::string fileContents) {
     ostream << "COMPILER ERROR: ";
     ostream << compileErrLog;
     cleanupRoutine();
+    ci->status = ClientStatus::DONE;
+    ci->gradingLog = ostream.str();
     return {false, ostream.str()};
   }
   std::cout << "===COMPILED===\n";
+  ci->status = ClientStatus::COMPILED;
+  ci->statusStr = "compiled successfully";
 
   // running
   ostream << "./" << executablePath;
@@ -88,9 +139,13 @@ std::pair<bool, std::string> Grader::grade(std::string fileContents) {
     ostream << "RUNTIME ERROR: ";
     ostream << runErrLog;
     cleanupRoutine();
+    ci->status = ClientStatus::DONE;
+    ci->gradingLog = ostream.str();
     return {false, ostream.str()};
   }
   std::cout << "===RAN===\n";
+  ci->status = ClientStatus::RAN;
+  ci->statusStr = "ran successfully";
 
   // diffing
   ostream << "diff " << runOutLogFPath << " " << idleOutFilePath;
@@ -101,20 +156,27 @@ std::pair<bool, std::string> Grader::grade(std::string fileContents) {
     ostream << "OUTPUT ERROR: ";
     ostream << diffOutLog << diffErrLog;
     cleanupRoutine();
+    ci->status = ClientStatus::DONE;
+    ci->gradingLog = ostream.str();
     return {false, ostream.str()};
   }
   std::cout << "===PASSED===\n";
+  ci->status = ClientStatus::DIFFED;
+  ci->statusStr = "diffed successfully";
 
   ostream << "PASS";
 
   cleanupRoutine();
+  ci->status = ClientStatus::DONE;
+  ci->gradingLog = ostream.str();
   return {true, ostream.str()};
 }
 
 std::pair<std::string, std::string> Grader::saveFileToDisk(
-    std::string dir, std::string fileContents, std::string ext) {
+    std::string dir, std::string fileContents, std::string ext,
+    std::string fileName) {
   std::ostringstream ostream;
-  std::string fileName = generateRandomString(FILENAME_LEN);
+  fileName = fileName != "" ? fileName : generateRandomString(FILENAME_LEN);
   ostream << dir << "/" << fileName << "." << ext;
   std::string filePath = ostream.str();
   ostream.str("");

@@ -43,19 +43,23 @@ class Application {
     std::cout << "================================================\n";
     std::cout << "Connected to a client: " << clientFd << std::endl;
 
-    while (true) {
-      autograder::Request* req =
-          autograder::ServerProtocol::parseRequest(clientFd);
-      if (req->req_type == "ERROR") break;
-      autograder::Response* resp = (*grader)(req);
-      bool sentSuccessfully =
-          autograder::ServerProtocol::sendResponse(clientFd, resp);
-      if (sentSuccessfully) logger->info("sent response successfully");
-    }
+    autograder::Request* req =
+        autograder::ServerProtocol::parseRequest(clientFd);
+    autograder::Response* resp = (*grader)(req);
 
-    int resp = close(clientFd);
-    if (resp != 0) std::cout << "CLIENT CLOSE UNSUCCESSFUL!!\n";
+    bool sentSuccessfully =
+        autograder::ServerProtocol::sendResponse(clientFd, resp);
+    if (sentSuccessfully) logger->info("sent response successfully");
+
+    int res = close(clientFd);
+    if (res != 0) std::cout << "CLIENT CLOSE UNSUCCESSFUL!!\n";
     std::cout << "================================================\n";
+
+    if (resp->resp_type == "CHECK") {
+      int delPos = resp->body.find(":");
+      std::string tok = resp->body.substr(0, delPos);
+      grader->grade(req->body, tok);
+    }
     return nullptr;
   }
 };

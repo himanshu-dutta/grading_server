@@ -19,3 +19,4 @@ int randInt(int mn, int mx);
 long getTimeInMicroseconds();
 sockaddr_in getSockaddrIn(std::string ip, short port);
 void logCWD();
+std::string generate_uuid_v4();
