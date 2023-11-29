@@ -41,7 +41,7 @@ class Application {
   void* handler(void* clientFdPtr) {
     int clientFd = *(int*)clientFdPtr;
     std::cout << "================================================\n";
-    std::cout << "Connected to a client...\n";
+    std::cout << "Connected to a client: " << clientFd << std::endl;
 
     while (true) {
       autograder::Request* req =
@@ -53,7 +53,8 @@ class Application {
       if (sentSuccessfully) logger->info("sent response successfully");
     }
 
-    close(clientFd);
+    int resp = close(clientFd);
+    if (resp != 0) std::cout << "CLIENT CLOSE UNSUCCESSFUL!!\n";
     std::cout << "================================================\n";
     return nullptr;
   }
@@ -99,8 +100,9 @@ int main(int argc, char* argv[]) {
     socklen_t clientAddrLen = sizeof(clientAddr);
     int clientFd = accept(listenerFd, (sockaddr*)&clientAddr, &clientAddrLen);
     check_error(clientFd >= 0, "accept error");
-    threadpool.queueJob(threadFunc, &clientFd);
-    // threadFunc(&client_fd);
+    int* clientFdCopy = new int;
+    *clientFdCopy = clientFd;
+    threadpool.queueJob(threadFunc, clientFdCopy);
   }
 }
 // #############################################################################
