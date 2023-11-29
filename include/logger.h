@@ -6,6 +6,7 @@
 
 namespace autograder {
 
+// thread-safe file logger, to write application logs to some file
 class FileLogger {
  public:
   enum class LoggerLevel { TRACE, DEBUG, INFO, WARN, ERROR, FATAL };

@@ -11,9 +11,8 @@
 #include <utility>
 
 namespace autograder {
-const uint32_t MAX_THREADS =
-    std::thread::hardware_concurrency()
-    << 7;  // a heuristic metric of 128 threads per CPU core.
+const uint32_t MAX_THREADS = std::thread::hardware_concurrency()
+                             << 7;  // a heuristic metric of 128 threads
 
 typedef std::function<void*(void*)> Task;
 typedef void* Args;
