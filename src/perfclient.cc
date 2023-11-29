@@ -6,11 +6,17 @@
 #include <unistd.h>
 
 #include <climits>
+#include <fstream>
 #include <functional>
 #include <iostream>
 #include <sstream>
 
 #include "utils.h"
+
+inline bool fileExists(const std::string& name) {
+  std::ifstream f(name.c_str());
+  return f.good();
+}
 
 template <typename T>
 T calcAvg(std::vector<T>* arr) {
@@ -200,6 +206,17 @@ int main(int argc, char* argv[]) {
   auto [serverHost, serverPort] = splitHostPort(argv[6]);
   std::string sourceCodeFileToBeGraded(argv[7]);
   double clientTimeout = atof(argv[8]);
+
+  if (!fileExists(logFilePath)) {
+    std::ostringstream ostream;
+    ostream << "echo "
+               "'num_clients,num_req_per_client,req_sent_rate,successful_req_"
+               "rate,timeout_req_rate,error_req_rate,avg_resp_time' > "
+            << logFilePath;
+    system(ostream.str().c_str());
+    ostream.str("");
+    ostream.clear();
+  }
 
   int connFd;
   int status;
