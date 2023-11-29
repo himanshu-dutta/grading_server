@@ -24,7 +24,7 @@ $ ./build/client status 0.0.0.0:5005 67dad33a-e7ef-4abe-a756-e20471cc158a
 
 Run: `./build/perfserver <port> <logFilePath> <serverBinPath> <serverPort> <serverThreadpoolSize>` to start the performance testing server.
 
-Run: `./build/perfclient <perfserverIP:port> <numClients> <numRequests> <logFilePath> <clientBinPath> <serverIP:port> <sourceCodeFileToBeGraded> <clientTimeout>` to start the performance testing client for `numClients` clients.
+Run: `./build/perfclient <perfserverIP:port> <numClients> <numRequests> <logFilePath> <clientBinPath> <serverIP:port> <sourceCodeFileToBeGraded> <clientPollTime>` to start the performance testing client for `numClients` clients.
 
 Example:
 
