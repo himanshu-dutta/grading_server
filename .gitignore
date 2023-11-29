@@ -36,5 +36,3 @@
 .vscode
 .DS_Store
 build/
-samples/
-logs/
