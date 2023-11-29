@@ -64,7 +64,6 @@ std::function<int()> makeClientFn(std::string clientBinPath,
       pclose(fp);
       std::string ln(outBuff);
 
-      std::cout << "CLIENT STATUS LOG: " << ln << std::endl;
       int donePos = ln.find("DONE");
       if (donePos != std::string::npos) return 0;
 
