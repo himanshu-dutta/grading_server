@@ -24,14 +24,14 @@ T calcAvg(std::vector<T>* arr) {
   T arrSum = 0;
   for (auto val : vals) arrSum += val;
   int numElems = vals.size();
-  return (arrSum / numElems);
+  return numElems == 0 ? 0 : (arrSum / numElems);
 }
 
 std::function<int()> makeClientFn(std::string clientBinPath,
                                   std::string serverIp, std::string serverPort,
                                   std::string sourceCodeFilePath,
                                   double clientTimeout) {
-  std::function<int()> clientFn = [&]() -> int {
+  std::function<int()> clientFn = [=]() -> int {
     int procId;
 
     check_error((procId = fork()) >= 0,
