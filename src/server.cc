@@ -64,7 +64,7 @@ pthread_mutex_t mu;
 void* threadCleaner(void* arg) {
   sigset_t set;
   sigemptyset(&set);
-//   sigaddset(&set, SIGSERV);
+  //   sigaddset(&set, SIGSERV);
   pthread_sigmask(SIG_BLOCK, &set, NULL);
   //   sigaddset(&set, SIGINT);
   //   sigaddset(&set, SIGKILL);
@@ -101,7 +101,7 @@ pthread_mutex_t appMu;
 void* handler(void* client_fd_ptr) {
   sigset_t set;
   sigemptyset(&set);
-//   sigaddset(&set, SIGSERV);
+  //   sigaddset(&set, SIGSERV);
   pthread_sigmask(SIG_BLOCK, &set, NULL);
   //   sigaddset(&set, SIGINT);
   //   sigaddset(&set, SIGKILL);
@@ -142,9 +142,8 @@ int main(int argc, char* argv[]) {
   signal(SIGSERV, serverStateSignalHandler);
 
   // parsing the arguments
-  //   check_error(argc == 2, "Usage: ./server <port>");
-  //   short portno = atoi(argv[1]);
-  short portno = 5005;
+  check_error(argc == 2, "Usage: ./server <port>");
+  short portno = atoi(argv[1]);
 
   serverState = new ServerState();
 
@@ -225,7 +224,9 @@ int main(int argc, char* argv[]) {
               << "Main Thread: END\n"
               << "\033[0m";
     pthread_t worker;
-    pthread_create(&worker, NULL, &handler, (void*)&client_fd);
+    int* client_fd_copy = new int;
+    *client_fd_copy = client_fd;
+    pthread_create(&worker, NULL, &handler, (void*)client_fd_copy);
 
     std::cerr << "\033[94m"
               << "Main Thread: AFTER THREAD\n"
