@@ -2,6 +2,7 @@
 #include <fcntl.h>
 #include <pthread.h>
 #include <signal.h>
+#include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
 

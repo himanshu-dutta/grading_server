@@ -1,8 +1,11 @@
 #include <arpa/inet.h>
 #include <pthread.h>
+#include <string.h>
 #include <sys/socket.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
+#include <climits>
 #include <functional>
 #include <iostream>
 #include <sstream>
