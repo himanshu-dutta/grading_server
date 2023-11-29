@@ -39,7 +39,8 @@ Response* Grader::operator()(Request* req) {
     std::unordered_map<std::string, ClientInfo*>::const_iterator info =
         clientInfo->find(token);
     if (info == clientInfo->end()) {
-      std::string respBody = token + ": " + "no pending request for this token";
+      std::string respBody =
+          token + ": ERROR :" + "no pending request for this token";
       resp = ServerProtocol::generateResponse(
           req->req_type,
           {
@@ -50,7 +51,7 @@ Response* Grader::operator()(Request* req) {
       ClientInfo* ci = info->second;
       if (ci->status == ClientStatus::DONE) {
         // REQ DONE
-        std::string respBody = token + ": " + ci->gradingLog;
+        std::string respBody = token + ": DONE :" + ci->gradingLog;
         resp = ServerProtocol::generateResponse(
             req->req_type,
             {

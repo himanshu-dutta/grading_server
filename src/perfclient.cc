@@ -6,11 +6,17 @@
 #include <unistd.h>
 
 #include <climits>
+#include <fstream>
 #include <functional>
 #include <iostream>
 #include <sstream>
 
 #include "utils.h"
+
+inline bool fileExists(const std::string& name) {
+  std::ifstream f(name.c_str());
+  return f.good();
+}
 
 template <typename T>
 T calcAvg(std::vector<T>* arr) {
@@ -24,31 +30,48 @@ T calcAvg(std::vector<T>* arr) {
 std::function<int()> makeClientFn(std::string clientBinPath,
                                   std::string serverIp, std::string serverPort,
                                   std::string sourceCodeFilePath,
-                                  double clientTimeout) {
+                                  double pollTime) {
   std::function<int()> clientFn = [&]() -> int {
-    int procId;
+    FILE* fp;
+    std::ostringstream ostream;
 
-    check_error((procId = fork()) >= 0,
-                "perfclient - error while spawnning client process");
+    ostream << clientBinPath << " new " << (serverIp + ":" + serverPort) << " "
+            << sourceCodeFilePath;
+    fp = popen(ostream.str().c_str(), "r");
+    char outBuff[4096];
+    if (fgets(outBuff, sizeof(outBuff), fp) == NULL) return 1;
+    if (fgets(outBuff, sizeof(outBuff), fp) == NULL) return 1;
+    if (fgets(outBuff, sizeof(outBuff), fp) == NULL) return 1;
+    pclose(fp);
+    std::string ln(outBuff);
 
-    if (procId == 0) {
-      char* args[] = {
-          strdup(clientBinPath.data()),
-          strdup((serverIp + ":" + serverPort).data()),
-          strdup(sourceCodeFilePath.data()),
-          strdup(std::to_string(clientTimeout).data()),
-          NULL,
-      };
-      execv(args[0], args);
-      exit(1);
+    int delPos = ln.find(":");
+    std::string token = ln.substr(0, delPos);
+
+    while (true) {
+      sleep(pollTime);
+
+      FILE* fp;
+      std::ostringstream ostream;
+
+      ostream << clientBinPath << " status " << (serverIp + ":" + serverPort)
+              << " " << token;
+      fp = popen(ostream.str().c_str(), "r");
+      char outBuff[4096];
+      if (fgets(outBuff, sizeof(outBuff), fp) == NULL) return 1;
+      if (fgets(outBuff, sizeof(outBuff), fp) == NULL) return 1;
+      if (fgets(outBuff, sizeof(outBuff), fp) == NULL) return 1;
+      pclose(fp);
+      std::string ln(outBuff);
+
+      std::cout << "CLIENT STATUS LOG: " << ln << std::endl;
+      int donePos = ln.find("DONE");
+      if (donePos != std::string::npos) return 0;
+
+      int errorPos = ln.find("ERROR");
+      if (errorPos != std::string::npos) return 1;
     }
-
-    int status;
-    check_error(waitpid(procId, &status, 0) >= 0,
-                "perfclient - waiting for client to exit");
-
-    if (!WIFEXITED(status)) return 0;
-    return (int)WEXITSTATUS(status);
+    return 1;
   };
   return clientFn;
 }
@@ -122,7 +145,7 @@ void* clientProcess(void* _args) {
 void perfClientExecute(std::string logFilePath, int numConcurrentClients,
                        int numRequestsPerClient, std::string clientBinPath,
                        std::string serverIp, std::string serverPort,
-                       std::string sourceCodeFilePath, double clientTimeout) {
+                       std::string sourceCodeFilePath, double clientPollTime) {
   // spawn numConcurrentClients processes concurrently
   // each process should make numRequestsPerClient number of requests
   // serially
@@ -131,7 +154,7 @@ void perfClientExecute(std::string logFilePath, int numConcurrentClients,
   std::vector<pthread_t>* finishedThreads = new std::vector<pthread_t>(0);
 
   std::function<int()> clientFn = makeClientFn(
-      clientBinPath, serverIp, serverPort, sourceCodeFilePath, clientTimeout);
+      clientBinPath, serverIp, serverPort, sourceCodeFilePath, clientPollTime);
   ClientProcessArgs* args =
       new ClientProcessArgs(clientFn, numRequestsPerClient);
   std::vector<ClientProcessRecord*> records(numConcurrentClients);
@@ -190,7 +213,7 @@ int main(int argc, char* argv[]) {
               "Usage: ./perfclient <perfserverIP:port> <numClients> "
               "<numRequests> <logFilePath> "
               "<clientBinPath> <serverIP:port> <sourceCodeFileToBeGraded> "
-              "<clientTimeout>");
+              "<clientPollTime>");
 
   auto [perfHost, perfPort] = splitHostPort(argv[1]);
   int numClients = atoi(argv[2]);
@@ -199,7 +222,18 @@ int main(int argc, char* argv[]) {
   std::string clientBinPath(argv[5]);
   auto [serverHost, serverPort] = splitHostPort(argv[6]);
   std::string sourceCodeFileToBeGraded(argv[7]);
-  double clientTimeout = atof(argv[8]);
+  double clientPollTime = atof(argv[8]);
+
+  if (!fileExists(logFilePath)) {
+    std::ostringstream ostream;
+    ostream << "echo "
+               "'num_clients,num_req_per_client,req_sent_rate,successful_req_"
+               "rate,timeout_req_rate,error_req_rate,avg_resp_time' > "
+            << logFilePath;
+    system(ostream.str().c_str());
+    ostream.str("");
+    ostream.clear();
+  }
 
   int connFd;
   int status;
@@ -219,7 +253,7 @@ int main(int argc, char* argv[]) {
 
   perfClientExecute(logFilePath, numClients, numRequests, clientBinPath,
                     serverHost, serverPort, sourceCodeFileToBeGraded,
-                    clientTimeout);
+                    clientPollTime);
 
   std::cout << "\033[92m"
             << "Ending performance client for " << numClients << " clients"

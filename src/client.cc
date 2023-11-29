@@ -47,6 +47,9 @@ int main(int argc, char* argv[]) {
     std::cout << "Response from the server:\n" << resp->body << std::endl;
     close(connFd);
 
+    std::size_t found = resp->body.find("DONE");
+    if (found != std::string::npos) exit(0);
+    exit(1);
   } else if (reqType == "new") {
     std::string evaluationFilePath = argv[3];
     std::string data = readFileFromPath(evaluationFilePath);
