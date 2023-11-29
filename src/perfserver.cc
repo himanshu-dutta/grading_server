@@ -152,8 +152,7 @@ int main(int argc, char* argv[]) {
                 << "Starting performance test for " << numClients << " clients"
                 << "\033[0m" << std::endl;
 
-      ostream << "/Users/himanshu/Projects/DECS_Project/logs/server_run_"
-              << numClients << ".log";
+      ostream << "/tmp/server_run_" << numClients << ".log";
       serverLogFilePath = ostream.str();
       ostream.str("");
       ostream.clear();
