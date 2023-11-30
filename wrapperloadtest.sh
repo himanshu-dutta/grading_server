@@ -2,8 +2,8 @@
 
 
 timesDropped=0
-numClients=4
-clientIncr=4
+numClients=8
+clientIncr=8
 DESIREDDROPS=4
 
 while [[ $timesDropped -lt $DESIREDDROPS ]]

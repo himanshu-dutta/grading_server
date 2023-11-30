@@ -8,8 +8,7 @@ sleepTimeSeconds=$3
 #running number of clients
 for i in $(seq 1 $numClients)
 do
-    ./build/loadtestclient 0.0.0.0:5005 source.c $loopNum $sleepTimeSeconds > "./build/client${i}.txt" &
-
+    ./build/loadtestclient 0.0.0.0:5005 samples/correct.c $loopNum $sleepTimeSeconds > "./build/client${i}.txt" &
     pids[${i}]=$!
 done
 

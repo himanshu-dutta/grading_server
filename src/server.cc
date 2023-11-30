@@ -57,6 +57,8 @@ class Application {
 Application* app;
 
 void* handler(void* client_fd_ptr) {
+  long stTime = getTimeInMicroseconds();
+
   int client_fd = *(int*)client_fd_ptr;
   std::cout << "================================================\n";
   std::cout << "Connected to a client...\n";
@@ -64,12 +66,17 @@ void* handler(void* client_fd_ptr) {
   while (true) {
     autograder::Request* req =
         autograder::ServerProtocol::parseRequest(client_fd);
-    //   std::cout << "Received client request for: " << req->req_type
-    //             << std::endl;
     if (req->req_type == "ERROR") break;
     autograder::Response* resp = (*app->grader)(req);
     autograder::ServerProtocol::sendResponse(client_fd, resp);
   }
+
+  long enTime = getTimeInMicroseconds();
+  long duration = enTime - stTime;
+
+  std::ostringstream ostream;
+  ostream << "echo '" << duration << "' >> logs/responseTime.txt";
+  system(ostream.str().c_str());
 
   close(client_fd);
   std::cout << "================================================\n";
@@ -77,8 +84,6 @@ void* handler(void* client_fd_ptr) {
 }
 
 int main(int argc, char* argv[]) {
-  //   signal(SIGINT, shutdownSignalHandler);
-  //   signal(SIGKILL, shutdownSignalHandler);
   signal(SIGSERV, serverStateSignalHandler);
 
   check_error(argc == 2, "Usage: ./server <port>");
@@ -104,11 +109,6 @@ int main(int argc, char* argv[]) {
       std::ostringstream ostream;
       ostream << "echo '" << serverState->numClients << "," << throughput
               << "' >> serverrun.log";
-      //   std::cout << "\033[92m"
-      //             << "Running the cmd: " << ostream.str() << std::endl;
-      //   std::cout << "NUMSUCCESS: " << serverState->numSuccessfulReqResp
-      //             << ", DURATION: " << duration << std::endl
-      //             << "\033[0m";
       system(ostream.str().c_str());
       serverState->reset();
     }
