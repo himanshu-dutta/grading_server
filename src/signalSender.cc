@@ -17,13 +17,14 @@ int main(int argc, char* argv[]) {
 
   int conn_fd;
   sockaddr_in server_addr;
+  // creating a socket to send load test value to server
   check_error((conn_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) >= 0,
               "error at socket creation");
 
   server_addr.sin_family = AF_INET;
   server_addr.sin_port = htons(portno);
   server_addr.sin_addr.s_addr = inet_addr(host.data());
-
+  //connect to the server to give the loadtest value
   check_error(connect(conn_fd, (struct sockaddr*)&server_addr,
                       sizeof(server_addr)) >= 0,
               "error at socket connect");

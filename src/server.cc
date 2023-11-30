@@ -64,10 +64,7 @@ pthread_mutex_t mu;
 void* threadCleaner(void* arg) {
   sigset_t set;
   sigemptyset(&set);
-  //   sigaddset(&set, SIGSERV);
   pthread_sigmask(SIG_BLOCK, &set, NULL);
-  //   sigaddset(&set, SIGINT);
-  //   sigaddset(&set, SIGKILL);
 
   while (true) {
     pthread_mutex_lock(&mu);
@@ -101,10 +98,7 @@ pthread_mutex_t appMu;
 void* handler(void* client_fd_ptr) {
   sigset_t set;
   sigemptyset(&set);
-  //   sigaddset(&set, SIGSERV);
   pthread_sigmask(SIG_BLOCK, &set, NULL);
-  //   sigaddset(&set, SIGINT);
-  //   sigaddset(&set, SIGKILL);
 
   int client_fd = *(int*)client_fd_ptr;
   std::cout << "================================================\n";
@@ -151,7 +145,7 @@ int main(int argc, char* argv[]) {
     std::cerr << "\033[92m"
               << "Received signal: " << sig << std::endl
               << "\033[0m";
-
+    // differentiating between server started taking load or not!
     if (!serverState->startedRecording) {
       std::string numClientsStr = readFileFromPath("./numClients.txt");
       serverState->numClients = atoi(numClientsStr.c_str());
@@ -200,7 +194,9 @@ int main(int argc, char* argv[]) {
   check_error(
       (bind(listener_fd, (sockaddr*)&server_addr, sizeof(server_addr))) >= 0,
       "bind error");
-  check_error((listen(listener_fd, BACKLOG)) >= 0, "listen error");
+  check_error(
+    (listen(listener_fd, BACKLOG)) >= 0, 
+    "listen error");
 
   shutdownHandler = [&](int sig) -> void {
     std::cerr << "Shutting the server down, yo!\n";

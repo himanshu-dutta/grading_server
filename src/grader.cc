@@ -125,7 +125,7 @@ std::pair<std::string, std::string> Grader::saveFileToDisk(
 
   return {fileName, filePath};
 }
-
+// to run the command
 std::pair<int, std::pair<std::string, std::string>> Grader::runCmd(
     std::string cmd, std::string outLogPath, std::string errLogPath) {
   std::ostringstream ostream;

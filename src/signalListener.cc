@@ -36,10 +36,11 @@ int main(int argc, char* argv[]) {
 
     int numClients;
     int nb = read(client_fd, &numClients, sizeof(numClients));
+    
     std::ostringstream ostream;
     ostream << "echo '" << numClients << " tp' > numClients.txt";
     system(ostream.str().c_str());
-
+  // signelling the server
     int retVal = kill(serverProcId, 10);
     std::cout << "Sent kill signal and got retVal: " << retVal << std::endl;
     close(client_fd);

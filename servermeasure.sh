@@ -1,7 +1,7 @@
 #! /bin/bash
 
 fl="server_stats.csv"
-
+# putting header into the file
 :>$fl
 echo "num_clients,num_threads,cpu_usage" >> $fl
 
