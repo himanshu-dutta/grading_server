@@ -39,6 +39,7 @@ class Application {
   Application(autograder::Grader* grader) : grader(grader) {}
 
   void* handler(void* clientFdPtr) {
+    long startTime = getTimeInMicroseconds();
     int clientFd = *(int*)clientFdPtr;
     std::cout << "================================================\n";
     std::cout << "Connected to a client: " << clientFd << std::endl;
@@ -50,7 +51,11 @@ class Application {
       autograder::Response* resp = (*grader)(req);
       bool sentSuccessfully =
           autograder::ServerProtocol::sendResponse(clientFd, resp);
-      if (sentSuccessfully) logger->info("sent response successfully");
+      long endTime = getTimeInMicroseconds();
+      long duration = endTime - startTime;
+      if (sentSuccessfully)
+        logger->info(std::string("sent response successfully:") +
+                     std::to_string(duration));
     }
 
     int resp = close(clientFd);
