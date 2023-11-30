@@ -19,60 +19,37 @@ Grader::Grader(std::string rootDir, std::string idleOutFilePath)
 
 Response* Grader::operator()(Request* req) {
   Response* resp;
+  std::string respBody;
   if (req->req_type == "CHECK") {
     ClientInfo* ci = new ClientInfo(generate_uuid_v4(), req->body);
     clientInfo->insert_or_assign(ci->token, ci);
-    std::string respText = ci->token + ": " + ci->statusStr;
-
+    respBody = ci->token + ": " + ci->statusStr;
     auto [fileName, filePath] =
         saveFileToDisk(rootDir, req->body, "c", ci->token);
-
-    resp = ServerProtocol::generateResponse(
-        req->req_type,
-        {
-            {"Content-Length", std::to_string(respText.length())},
-        },
-        respText);
-
   } else if (req->req_type == "STATUS") {
     std::string token = req->body;
     std::unordered_map<std::string, ClientInfo*>::const_iterator info =
         clientInfo->find(token);
+
     if (info == clientInfo->end()) {
-      std::string respBody =
-          token + ": ERROR :" + "no pending request for this token";
-      resp = ServerProtocol::generateResponse(
-          req->req_type,
-          {
-              {"Content-Length", std::to_string(respBody.length())},
-          },
-          respBody);
+      respBody = token + ": ERROR :" + "no pending request for this token";
     } else {
       ClientInfo* ci = info->second;
       if (ci->status == ClientStatus::DONE) {
-        // REQ DONE
-        std::string respBody = token + ": DONE :" + ci->gradingLog;
-        resp = ServerProtocol::generateResponse(
-            req->req_type,
-            {
-                {"Content-Length", std::to_string(respBody.length())},
-            },
-            respBody);
-
-        // DELETE INFO & LOG
-        clientInfo->erase(ci->token);
+        respBody = token + ": DONE :" + ci->gradingLog;  // REQ DONE
+        clientInfo->erase(ci->token);                    // DELETE INFO
       } else {
-        // REQ IN PROGRESS
-        std::string respBody = token + ": " + ci->statusStr;
-        resp = ServerProtocol::generateResponse(
-            req->req_type,
-            {
-                {"Content-Length", std::to_string(respBody.length())},
-            },
-            respBody);
+        respBody = token + ": " + ci->statusStr;  // REQ IN PROGRESS
       }
     }
   }
+
+  resp = ServerProtocol::generateResponse(
+      req->req_type,
+      {
+          {"Content-Length", std::to_string(respBody.length())},
+      },
+      respBody);
 
   return resp;
 }
