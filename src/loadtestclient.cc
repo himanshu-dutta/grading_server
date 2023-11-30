@@ -57,7 +57,6 @@ void loadTest(int connFd, std::string evaluationFileData,
     sleep(state.numSecs);
     state.numLoops--;
   }
-
 }
 
 int main(int argc, char* argv[]) {
@@ -115,6 +114,5 @@ int main(int argc, char* argv[]) {
     close(conn_fd);
   }
 
-  //   clientLoop(host, portno, evaluationFilePath);
   return 0;
 }
