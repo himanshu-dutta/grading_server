@@ -25,3 +25,5 @@ To do loadtesting (client-side results only in this branch): `./wrapperloadtest`
 Note: The loadtest file needs to be configured before you run `./wrapperloadtest`. In line 11, change the `<serverIP:port>` if necessary, and also the `<sourceCodeFileTobeGraded>`, if required.
 
 The results would be available in: `build/throughput.csv`, `build/responsetime.csv` and `build/numDropped.csv`.
+
+To measure server side performance metrics: `CPU Utilization`, `Response Time`, and `Num Threads`, run the `servemeasure.sh <serverPID>` script.
