@@ -4,7 +4,7 @@ INCLUDE_DIR=./include
 
 CC=g++
 CFLAGS=-std=c++17 -I$(INCLUDE_DIR)
-LFLAGS=-lpthread
+LFLAGS=-lpthread -pthread
 
 LIB_OBJS=protocol.o tcpsocket.o utils.o
 

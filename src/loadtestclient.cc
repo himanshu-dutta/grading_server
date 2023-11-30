@@ -20,8 +20,8 @@ struct LoadClientState {
   int numLoops;
   int numSecs;
   int numSuccessfulResp;
-  std::time_t loopStTime;
-  std::time_t loopEnTime;
+  long loopStTime;
+  long loopEnTime;
   LoadClientState(int numLoops, int numSecs)
       : numLoops(numLoops),
         numSecs(numSecs),
@@ -100,8 +100,8 @@ int main(int argc, char* argv[]) {
     if (connectResp >= 0) {
       loadTest(conn_fd, data, lcState);
       lcState.loopEnTime = getTimeInMicroseconds();
-      std::time_t loopTime = lcState.loopEnTime - lcState.loopStTime;
-      std::time_t avgRespTime = loopTime / (uint)lcState.numSuccessfulResp;
+      long loopTime = lcState.loopEnTime - lcState.loopStTime;
+      long avgRespTime = loopTime / (uint)lcState.numSuccessfulResp;
       std::cout << "ART:" << avgRespTime << ",";
       std::cout << "NSR:" << lcState.numSuccessfulResp << ",";
       std::cout << "LT:" << loopTime << std::endl;

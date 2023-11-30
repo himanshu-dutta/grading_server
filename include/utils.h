@@ -14,4 +14,4 @@ std::pair<std::string, std::string> splitHostPort(std::string hp);
 std::string generateRandomString(int len);
 std::string readFileFromPath(std::string);
 int randInt(int mn, int mx);
-std::time_t getTimeInMicroseconds();
+long getTimeInMicroseconds();
