@@ -1,6 +1,18 @@
 #! /bin/bash
 
-fl="server_stats.csv"
+unameOut="$(uname -s)"
+case "${unameOut}" in
+    Linux*)     machine=Linux;;
+    Darwin*)    machine=Mac;;
+    CYGWIN*)    machine=Cygwin;;
+    MINGW*)     machine=MinGw;;
+    MSYS_NT*)   machine=Git;;
+    *)          machine="UNKNOWN:${unameOut}"
+esac
+echo ${machine}
+
+
+fl="logs/server_stats.csv"
 # putting header into the file
 :>$fl
 echo "num_clients,num_threads,cpu_usage" >> $fl
@@ -10,10 +22,14 @@ serverProcId=$1
 while true
 do
     numClients=$(cat ./numClients.txt | cut -d' ' -f1)
-    numThreads=$(ps -M $serverProcId | grep -v USER | wc -l)
-    # numThreads=$(ps huH p 1 | wc -l)
-    cpuUsage=$(top -l  2 | grep -E "^CPU" | tail -1 | awk '{ print $3 + $5 }')
-    # cpuUsage=$(cpuUsage=$(vmstat -w | awk 'FNR>2 {print $(NF-3)}'))
+    if [[ $machine == "Mac" ]]
+    then
+        numThreads=$(ps -M $serverProcId | grep -v USER | wc -l)
+        cpuUsage=$(top -l  2 | grep -E "^CPU" | tail -1 | awk '{ print $3 + $5 }')
+    else
+        numThreads=$(ps -o nlwp --no-header $serverProcId)
+        cpuUsage=$(echo $[100- $(vmstat 1 2| tail -1 | awk '{print $15}')])
+    fi
     echo "$numClients,$numThreads,$cpuUsage" >> $fl
     sleep 10
 done

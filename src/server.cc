@@ -100,6 +100,8 @@ void* handler(void* client_fd_ptr) {
   sigemptyset(&set);
   pthread_sigmask(SIG_BLOCK, &set, NULL);
 
+  long stTime = getTimeInMicroseconds();
+
   int client_fd = *(int*)client_fd_ptr;
   std::cout << "================================================\n";
   std::cout << "Connected to a client...\n";
@@ -115,6 +117,13 @@ void* handler(void* client_fd_ptr) {
         autograder::ServerProtocol::sendResponse(client_fd, resp);
     if (sentSuccessfully) serverState->numSuccessfulReqResp++;
   }
+
+  long enTime = getTimeInMicroseconds();
+  long duration = enTime - stTime;
+
+  std::ostringstream ostream;
+  ostream << "echo '" << duration << "' >> logs/responseTime.txt";
+  system(ostream.str().c_str());
 
   close(client_fd);
   std::cout << "================================================\n";
@@ -160,7 +169,7 @@ int main(int argc, char* argv[]) {
 
       std::ostringstream ostream;
       ostream << "echo '" << serverState->numClients << "," << throughput
-              << "' >> serverrun.log";
+              << "' >> logs/serverrun.log";
       system(ostream.str().c_str());
       serverState->reset();
     }
@@ -194,9 +203,7 @@ int main(int argc, char* argv[]) {
   check_error(
       (bind(listener_fd, (sockaddr*)&server_addr, sizeof(server_addr))) >= 0,
       "bind error");
-  check_error(
-    (listen(listener_fd, BACKLOG)) >= 0, 
-    "listen error");
+  check_error((listen(listener_fd, BACKLOG)) >= 0, "listen error");
 
   shutdownHandler = [&](int sig) -> void {
     std::cerr << "Shutting the server down, yo!\n";
