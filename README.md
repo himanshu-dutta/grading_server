@@ -28,3 +28,5 @@ $ ./build/signalListener <signalListenerPort> <serverPid>
 Then run the `wrapperloadtest.sh` file after configuring the `signalListenerPort` in the same, configuring the source file path as well. You may have to change the server port in `loadtest.sh` as well.
 
 The client side `throughput.csv` and `responsetime.csv` would be stored in `./build/` subdirectory, and `serverrun.log` in the current directory itself.
+
+Also need to launch the `servermeasure.sh` script in a different terminal, in the same working directory, to obtain `Average CPU Utilization` and `Average Number of Threads`.
