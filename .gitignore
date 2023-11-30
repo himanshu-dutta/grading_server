@@ -35,3 +35,4 @@
 # Folders
 .vscode
 .DS_Store
+build/
